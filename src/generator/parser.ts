@@ -1,7 +1,8 @@
 import fs from 'fs';
 import yaml from 'js-yaml';
+import { Config } from './types.js';
 
-export function parseConfig(configPath) {
+export function parseConfig(configPath: string): Config {
   if (!fs.existsSync(configPath)) {
     throw new Error(`Config file not found: ${configPath}`);
   }
@@ -9,8 +10,8 @@ export function parseConfig(configPath) {
   const content = fs.readFileSync(configPath, 'utf-8');
 
   try {
-    return yaml.load(content);
-  } catch (err) {
+    return yaml.load(content) as Config;
+  } catch (err: any) {
     throw new Error(`Invalid YAML: ${err.message}`);
   }
 }

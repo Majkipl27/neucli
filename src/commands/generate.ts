@@ -1,8 +1,9 @@
 import path from 'path';
 import chalk from 'chalk';
+import fs from 'fs';
 import { runPipeline } from '../generator/index.js';
 
-export async function generate(configPath, options) {
+export async function generate(configPath: string, options: { output: string; keepStale?: boolean }) {
   const resolvedConfig = path.resolve(configPath);
   const resolvedOutput = path.resolve(options.output);
 
@@ -28,16 +29,16 @@ export async function generate(configPath, options) {
       console.log(chalk.dim('  pnpm install'));
       console.log(chalk.dim('  pnpm dev'));
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error(chalk.red(`\n✗ Generation failed: ${err.message}`));
     process.exit(1);
   }
 }
 
-function isExistingProject(dir) {
+function isExistingProject(dir: string): boolean {
   try {
-    const pkg = path.join(dir, 'node_modules');
-    return require('fs').existsSync(pkg);
+    const nodeModules = path.join(dir, 'node_modules');
+    return fs.existsSync(nodeModules);
   } catch {
     return false;
   }

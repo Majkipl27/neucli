@@ -1,16 +1,25 @@
+import { Config, Node } from './types.js';
+
 const BUILT_IN_COMPONENTS = [
   'navbar', 'hero', 'section', 'container', 'grid',
   'card', 'text', 'button', 'image', 'footer'
 ];
 
-function toPascalCase(str) {
+function toPascalCase(str: string): string {
   return str
     .split(/[-_\s]+/)
     .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
     .join('');
 }
 
-export function resolveComponentTemplate(type) {
+export interface ResolvedComponent {
+  templatePath: string;
+  componentName: string;
+  isBuiltIn: boolean;
+  originalType?: string;
+}
+
+export function resolveComponentTemplate(type: string): ResolvedComponent {
   const normalized = type.toLowerCase();
 
   if (BUILT_IN_COMPONENTS.includes(normalized)) {
@@ -30,10 +39,10 @@ export function resolveComponentTemplate(type) {
   };
 }
 
-export function collectComponentTypes(config) {
-  const types = new Set();
+export function collectComponentTypes(config: Config): string[] {
+  const types = new Set<string>();
 
-  function walk(node) {
+  function walk(node: Node) {
     if (node?.type) types.add(node.type);
     if (node?.children) node.children.forEach(walk);
   }
@@ -47,6 +56,6 @@ export function collectComponentTypes(config) {
   return [...types];
 }
 
-export function getBuiltInComponents() {
+export function getBuiltInComponents(): string[] {
   return [...BUILT_IN_COMPONENTS];
 }

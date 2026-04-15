@@ -1,5 +1,7 @@
-export function validateConfig(config) {
-  const errors = [];
+import { Config, Node } from './types.js';
+
+export function validateConfig(config: Config): Config {
+  const errors: string[] = [];
 
   if (!config || typeof config !== 'object') {
     throw new Error('Config must be a valid YAML object');
@@ -39,7 +41,7 @@ export function validateConfig(config) {
   return config;
 }
 
-function validateNode(node, path, errors) {
+function validateNode(node: Node, path: string, errors: string[]) {
   if (!node.type) {
     errors.push(`${path}.type is required`);
   }

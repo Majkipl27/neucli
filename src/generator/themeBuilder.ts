@@ -1,5 +1,7 @@
-export function buildTailwindExtend(theme) {
-  const extend = {};
+import { Config } from './types.js';
+
+export function buildTailwindExtend(theme: Config['theme']) {
+  const extend: any = {};
 
   if (theme?.colors) {
     extend.colors = { ...theme.colors };
@@ -22,10 +24,10 @@ export function buildTailwindExtend(theme) {
   return extend;
 }
 
-export function buildGoogleFontsUrl(theme) {
+export function buildGoogleFontsUrl(theme: Config['theme']): string | null {
   if (!theme?.fonts) return null;
 
-  const fonts = new Set();
+  const fonts = new Set<string>();
   if (theme.fonts.heading) fonts.add(theme.fonts.heading);
   if (theme.fonts.body) fonts.add(theme.fonts.body);
 

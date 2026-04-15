@@ -9,6 +9,7 @@ import { resolveComponentTemplate, collectComponentTypes } from './componentReso
 import { buildPageSource, sanitizeName, buildJSX } from './pageBuilder.js';
 import { DiffReport, writeIfChanged, removeStaleFiles } from './differ.js';
 import { analyzeFeatures } from './features.js';
+import { Config, Node } from './types.js';
 
 const STATUS_ICONS = {
   added: chalk.green('+'),
@@ -16,7 +17,11 @@ const STATUS_ICONS = {
   unchanged: chalk.dim('✓'),
 };
 
-export async function runPipeline(configPath, outputDir, options = {}) {
+export async function runPipeline(
+  configPath: string, 
+  outputDir: string, 
+  options: { keepStale?: boolean } = {}
+): Promise<DiffReport> {
   const report = new DiffReport();
   const keepStale = options.keepStale || false;
 
@@ -28,11 +33,11 @@ export async function runPipeline(configPath, outputDir, options = {}) {
 
   const { features, dependencies } = analyzeFeatures(config);
 
-  const navbarJSX = config.globals?.navbar ? buildJSX(config.globals.navbar, 6) : null;
-  const footerJSX = config.globals?.footer ? buildJSX(config.globals.footer, 6) : null;
+  const navbarJSX = (config.globals?.navbar ? buildJSX(config.globals.navbar, 6) : null) ?? null;
+  const footerJSX = (config.globals?.footer ? buildJSX(config.globals.footer, 6) : null) ?? null;
   
-  const globalImports = new Set();
-  const collectGlobals = (n) => {
+  const globalImports = new Set<string>();
+  const collectGlobals = (n: Node | undefined) => {
     if (!n) return;
     const { componentName } = resolveComponentTemplate(n.type);
     globalImports.add(`import ${componentName} from './components/${componentName}';`);
@@ -46,25 +51,25 @@ export async function runPipeline(configPath, outputDir, options = {}) {
 
   console.log(chalk.dim('  Generating components...'));
   const componentTypes = collectComponentTypes(config);
-  const currentComponentFiles = new Set();
+  const currentComponentFiles = new Set<string>();
 
   for (const type of componentTypes) {
     const { templatePath, componentName, isBuiltIn, originalType } = resolveComponentTemplate(type);
     
-    let customLogic = null;
-    let customImports = null;
-    let innerJSX = null;
+    let customLogic: string | null = null;
+    let customImports: string[] | null = null;
+    let innerJSX: string | null = null;
     if (!isBuiltIn && config.components) {
       // Allow overriding by pascal case or original type
-      const cmpDef = config.components[componentName] || config.components[originalType];
+      const cmpDef = config.components[componentName] || config.components[originalType as string];
       if (cmpDef) {
-        customLogic = cmpDef.logic;
-        customImports = cmpDef.imports;
+        customLogic = cmpDef.logic || null;
+        customImports = cmpDef.imports || null;
         if (cmpDef.children && cmpDef.children.length > 0) {
-          innerJSX = cmpDef.children.map(c => buildJSX(c, 6)).join('\n');
+          innerJSX = cmpDef.children.map(c => buildJSX(c, 6)).filter(Boolean).join('\n');
           
-          const deps = new Set();
-          const walkDeps = (n) => {
+          const deps = new Set<string>();
+          const walkDeps = (n: Node) => {
              const { componentName: depName } = resolveComponentTemplate(n.type);
              deps.add(`import ${depName} from './${depName}';`);
              if (n.children) n.children.forEach(walkDeps);
@@ -95,7 +100,7 @@ export async function runPipeline(configPath, outputDir, options = {}) {
   }
 
   console.log(chalk.dim('  Generating pages...'));
-  const currentPageFiles = new Set();
+  const currentPageFiles = new Set<string>();
 
   for (const page of config.pages) {
     const pageName = sanitizeName(page.name);

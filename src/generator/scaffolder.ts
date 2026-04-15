@@ -3,7 +3,8 @@ import path from 'path';
 import { renderTemplate } from './renderer.js';
 import { buildTailwindExtend, buildGoogleFontsUrl } from './themeBuilder.js';
 import { sanitizeName } from './pageBuilder.js';
-import { writeIfChanged } from './differ.js';
+import { writeIfChanged, DiffReport } from './differ.js';
+import { Config, Features } from './types.js';
 
 const DIRS = ['', 'src', 'src/components', 'src/pages', 'src/hooks', 'public', '.neucli'];
 
@@ -22,7 +23,16 @@ const PROJECT_FILES = [
   ['project/src/hooks/useSEO.ts.ejs', 'src/hooks/useSEO.ts'],
 ];
 
-export function scaffoldProject(config, outputDir, report, features, dependencies, navbarJSX, footerJSX, globalImports) {
+export function scaffoldProject(
+  config: Config, 
+  outputDir: string, 
+  report: DiffReport, 
+  features: Features, 
+  dependencies: Record<string, string>, 
+  navbarJSX: string | null, 
+  footerJSX: string | null, 
+  globalImports: string[]
+) {
   DIRS.forEach(dir => {
     fs.mkdirSync(path.join(outputDir, dir), { recursive: true });
   });

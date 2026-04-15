@@ -1,9 +1,11 @@
-export function analyzeFeatures(config) {
+import { Config, AnalysisResult } from './types.js';
+
+export function analyzeFeatures(config: Config): AnalysisResult {
   const features = {
     routing: (config.pages && config.pages.length > 1) || false,
   };
 
-  const dependencies = {
+  const dependencies: Record<string, string> = {
     ...config.dependencies
   };
 

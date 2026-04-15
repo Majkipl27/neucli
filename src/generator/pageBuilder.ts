@@ -1,9 +1,10 @@
 import { resolveComponentTemplate } from './componentResolver.js';
+import { Page, Config, Node } from './types.js';
 
-export function buildPageSource(page, globals) {
-  const imports = new Map();
+export function buildPageSource(page: Page, globals: Config['globals']): string {
+  const imports = new Map<string, string>();
 
-  function collectImports(node) {
+  function collectImports(node: Node) {
     if (!node) return;
     const { componentName } = resolveComponentTemplate(node.type);
     if (!imports.has(componentName)) {
@@ -19,8 +20,11 @@ export function buildPageSource(page, globals) {
     .map(([name, importPath]) => `import ${name} from '${importPath}';`)
     .join('\n');
 
-  const sections = [];
-  page.sections.forEach(s => sections.push(buildJSX(s, 6)));
+  const sections: string[] = [];
+  page.sections.forEach(s => {
+    const jsx = buildJSX(s, 6);
+    if (jsx) sections.push(jsx);
+  });
 
   const pageName = sanitizeName(page.name);
   const pageTitle = page.title || pageName;
@@ -41,7 +45,7 @@ ${sections.join('\n')}
 `;
 }
 
-export function buildJSX(node, indent) {
+export function buildJSX(node: Node, indent: number): string | undefined {
   const { componentName } = resolveComponentTemplate(node.type);
   const spaces = ' '.repeat(indent);
   const propsStr = serializeProps(node);
@@ -53,8 +57,8 @@ export function buildJSX(node, indent) {
     return `${spaces}<${componentName}${propsStr} />`;
   }
 
-  if (hasChildren) {
-    const childrenJSX = node.children.map(c => buildJSX(c, indent + 2)).join('\n');
+  if (hasChildren && node.children) {
+    const childrenJSX = node.children.map(c => buildJSX(c, indent + 2)).filter(Boolean).join('\n');
     return `${spaces}<${componentName}${propsStr}>\n${childrenJSX}\n${spaces}</${componentName}>`;
   }
 
@@ -63,8 +67,8 @@ export function buildJSX(node, indent) {
   }
 }
 
-function serializeProps(node) {
-  const parts = [];
+function serializeProps(node: Node): string {
+  const parts: string[] = [];
 
   if (node.tag) parts.push(`tag="${escapeAttr(node.tag)}"`);
   if (node.id) parts.push(`id="${escapeAttr(node.id)}"`);
@@ -92,7 +96,7 @@ function serializeProps(node) {
   return '\n' + parts.map(p => `${indent}${p}`).join('\n') + '\n';
 }
 
-function serializeProp(key, value) {
+function serializeProp(key: string, value: any): string {
   if (typeof value === 'string') {
     if (value.startsWith('{') && value.endsWith('}')) {
       return `${key}=${value}`;
@@ -110,16 +114,15 @@ function serializeProp(key, value) {
   return `${key}="${value}"`;
 }
 
-function escapeJSX(str) {
-  // Pass unescaped to allow `{variable}` bindings natively inside text nodes
+function escapeJSX(str: string): string {
   return str;
 }
 
-function escapeAttr(str) {
+function escapeAttr(str: string): string {
   return str.replace(/"/g, '&quot;');
 }
 
-export function sanitizeName(name) {
+export function sanitizeName(name: string): string {
   const cleaned = name.replace(/[^a-zA-Z0-9]/g, '');
   if (!cleaned || /^[0-9]/.test(cleaned)) return 'Page' + cleaned;
   return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);

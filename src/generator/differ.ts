@@ -2,17 +2,15 @@ import fs from 'fs';
 import path from 'path';
 
 export class DiffReport {
-  constructor() {
-    this.added = [];
-    this.updated = [];
-    this.removed = [];
-    this.unchanged = [];
-  }
+  added: string[] = [];
+  updated: string[] = [];
+  removed: string[] = [];
+  unchanged: string[] = [];
 
-  add(filePath) { this.added.push(filePath); }
-  update(filePath) { this.updated.push(filePath); }
-  remove(filePath) { this.removed.push(filePath); }
-  skip(filePath) { this.unchanged.push(filePath); }
+  add(filePath: string) { this.added.push(filePath); }
+  update(filePath: string) { this.updated.push(filePath); }
+  remove(filePath: string) { this.removed.push(filePath); }
+  skip(filePath: string) { this.unchanged.push(filePath); }
 
   get totalChanges() {
     return this.added.length + this.updated.length + this.removed.length;
@@ -28,7 +26,7 @@ export class DiffReport {
   }
 }
 
-export function writeIfChanged(filePath, newContent, report) {
+export function writeIfChanged(filePath: string, newContent: string, report: DiffReport): 'unchanged' | 'updated' | 'added' {
   if (fs.existsSync(filePath)) {
     const existing = fs.readFileSync(filePath, 'utf-8');
     if (existing === newContent) {
@@ -47,15 +45,17 @@ export function writeIfChanged(filePath, newContent, report) {
   return 'added';
 }
 
-export function removeStaleFiles(directory, currentFileSet, report) {
+export function removeStaleFiles(directory: string, currentFileSet: Set<string>, report: DiffReport) {
   if (!fs.existsSync(directory)) return;
 
   const existing = fs.readdirSync(directory);
   for (const file of existing) {
     if (!currentFileSet.has(file)) {
       const fullPath = path.join(directory, file);
-      fs.unlinkSync(fullPath);
-      report.remove(fullPath);
+      if (fs.statSync(fullPath).isFile()) {
+        fs.unlinkSync(fullPath);
+        report.remove(fullPath);
+      }
     }
   }
 }

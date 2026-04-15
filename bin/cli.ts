@@ -16,6 +16,8 @@ program
   .argument('<config>', 'Path to the YAML config file')
   .option('-o, --output <dir>', 'Output directory', './output')
   .option('--keep-stale', 'Keep component/page files no longer in config', false)
-  .action(generate);
+  .action((config, options) => {
+    generate(config, options);
+  });
 
 program.parse();

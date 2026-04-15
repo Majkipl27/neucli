@@ -6,9 +6,9 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TEMPLATES_DIR = path.join(__dirname, "..", "templates");
 
-const templateCache = new Map();
+const templateCache = new Map<string, string>();
 
-export function renderTemplate(templatePath, data = {}) {
+export function renderTemplate(templatePath: string, data: Record<string, any> = {}): string {
   const fullPath = path.join(TEMPLATES_DIR, templatePath);
 
   if (!templateCache.has(fullPath)) {
@@ -18,9 +18,12 @@ export function renderTemplate(templatePath, data = {}) {
     templateCache.set(fullPath, fs.readFileSync(fullPath, "utf-8"));
   }
 
-  return ejs.render(templateCache.get(fullPath), data, { filename: fullPath });
+  const templateContent = templateCache.get(fullPath);
+  if (!templateContent) throw new Error(`Template content is empty for ${fullPath}`);
+
+  return ejs.render(templateContent, data, { filename: fullPath });
 }
 
-export function getTemplatesDir() {
+export function getTemplatesDir(): string {
   return TEMPLATES_DIR;
 }
