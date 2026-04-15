@@ -1,0 +1,39 @@
+import type { ReactNode } from 'react';
+<% if (features.routing) { %>import { Link } from 'react-router-dom';<% } %>
+
+interface FooterLink {
+  label: string;
+  href: string;
+}
+
+interface FooterProps {
+  text?: string;
+  links?: FooterLink[];
+  className?: string;
+  children?: ReactNode;
+  [key: string]: any;
+}
+
+export default function Footer({ text, links = [], className = '', children, ...rest }: FooterProps) {
+  const renderLink = (href: string, content: ReactNode, linkClass: string, key?: number | string) => {
+    <% if (features.routing) { %>const isExternal = href.startsWith('http') || href.startsWith('mailto:') || href.startsWith('tel:') || href.startsWith('#');
+    if (isExternal) {
+      return <a key={key} href={href} className={linkClass}>{content}</a>;
+    }
+    return <Link key={key} to={href} className={linkClass}>{content}</Link>;<% } else { %>return <a key={key} href={href} className={linkClass}>{content}</a>;<% } %>
+  };
+
+  return (
+    <footer className={className} {...rest}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {links.length > 0 && (
+          <div className="flex gap-6 mb-4">
+            {links.map((link, i) => renderLink(link.href, link.label, "hover:opacity-80 transition-opacity", i))}
+          </div>
+        )}
+        {text && <p className="opacity-60">{text}</p>}
+        {children}
+      </div>
+    </footer>
+  );
+}

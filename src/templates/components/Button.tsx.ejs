@@ -1,0 +1,40 @@
+import type { ReactNode } from 'react';
+<% if (features.routing) { %>import { Link } from 'react-router-dom';<% } %>
+
+interface ButtonProps {
+  label?: string;
+  href?: string;
+  className?: string;
+  children?: ReactNode;
+  [key: string]: any;
+}
+
+export default function Button({ label, href, className = '', children, ...rest }: ButtonProps) {
+  const content = label || children;
+
+  if (href) {
+    <% if (features.routing) { %>const isExternal = href.startsWith('http') || href.startsWith('mailto:') || href.startsWith('tel:') || href.startsWith('#');
+    if (isExternal) {
+      return (
+        <a href={href} className={`inline-block ${className}`} {...rest}>
+          {content}
+        </a>
+      );
+    }
+    return (
+      <Link to={href} className={`inline-block ${className}`} {...rest}>
+        {content}
+      </Link>
+    );<% } else { %>return (
+      <a href={href} className={`inline-block ${className}`} {...rest}>
+        {content}
+      </a>
+    );<% } %>
+  }
+
+  return (
+    <button className={className} {...rest}>
+      {content}
+    </button>
+  );
+}

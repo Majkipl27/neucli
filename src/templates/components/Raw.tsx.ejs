@@ -1,0 +1,23 @@
+import type { ReactNode } from 'react';
+<% if (locals.imports && locals.imports.length > 0) { %><%- locals.imports.join('\n') %><% } %>
+
+interface <%= componentName %>Props {
+  tag?: string;
+  className?: string;
+  children?: ReactNode;
+  [key: string]: any;
+}
+
+export default function <%= componentName %>({ tag = '<%= defaultTag %>', className = '', children, ...rest }: <%= componentName %>Props) {
+  const Tag = tag as keyof JSX.IntrinsicElements;
+<% if (locals.logic) { %><%- logic %><% } %>
+  return (
+    <Tag className={className} {...rest}>
+      <% if (locals.innerJSX) { %>
+      <%- innerJSX %>
+      <% } else { %>
+      {children}
+      <% } %>
+    </Tag>
+  );
+}

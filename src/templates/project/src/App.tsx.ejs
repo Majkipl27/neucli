@@ -1,0 +1,39 @@
+<% if (features.routing) { %>import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+<% pages.forEach(page => { %>import <%= sanitizeName(page.name) %> from './pages/<%= sanitizeName(page.name) %>';
+<% }); %>
+<% if (locals.globalImports && globalImports.length > 0) { %><%- globalImports.join('\n') %><% } %>
+
+export default function App() {
+  return (
+    <Router>
+      <div className="min-h-screen flex flex-col">
+<% if (navbarJSX) { %><%- navbarJSX %>
+<% } %>
+        <main className="flex-grow">
+          <Routes>
+  <% pages.forEach(page => { %>          <Route path="<%= page.path %>" element={<<%= sanitizeName(page.name) %> />} />
+  <% }); %>        </Routes>
+        </main>
+<% if (footerJSX) { %><%- footerJSX %>
+<% } %>
+      </div>
+    </Router>
+  );
+}
+<% } else { %><% const pageName = sanitizeName(pages[0].name); %>import <%= pageName %> from './pages/<%= pageName %>';
+<% if (locals.globalImports && globalImports.length > 0) { %><%- globalImports.join('\n') %><% } %>
+
+export default function App() {
+  return (
+    <div className="min-h-screen flex flex-col">
+<% if (navbarJSX) { %><%- navbarJSX %>
+<% } %>
+      <main className="flex-grow">
+        <<%= pageName %> />
+      </main>
+<% if (footerJSX) { %><%- footerJSX %>
+<% } %>
+    </div>
+  );
+}
+<% } %>
