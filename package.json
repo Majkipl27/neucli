@@ -4,11 +4,11 @@
   "description": "Generate React + Tailwind websites from YAML config",
   "type": "module",
   "bin": {
-    "neucli": "./bin/cli.js"
+    "neucli": "./bin/cli.ts"
   },
-  "main": "src/generator/index.js",
+  "main": "src/generator/index.ts",
   "scripts": {
-    "generate": "node bin/cli.js generate"
+    "generate": "node bin/cli.ts generate"
   },
   "keywords": [
     "react",

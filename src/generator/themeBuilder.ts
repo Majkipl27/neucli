@@ -1,4 +1,4 @@
-import { Config } from './types.js';
+import type { Config } from './types.ts';
 
 export function buildTailwindExtend(theme: Config['theme']) {
   const extend: any = {};

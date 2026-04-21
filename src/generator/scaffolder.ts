@@ -1,10 +1,10 @@
 import fs from 'fs';
 import path from 'path';
-import { renderTemplate } from './renderer.js';
-import { buildTailwindExtend, buildGoogleFontsUrl } from './themeBuilder.js';
-import { sanitizeName } from './pageBuilder.js';
-import { writeIfChanged, DiffReport } from './differ.js';
-import { Config, Features } from './types.js';
+import { renderTemplate } from './renderer.ts';
+import { buildTailwindExtend, buildGoogleFontsUrl } from './themeBuilder.ts';
+import { sanitizeName } from './pageBuilder.ts';
+import { writeIfChanged, DiffReport } from './differ.ts';
+import type { Config, Features } from './types.ts';
 
 const DIRS = ['', 'src', 'src/components', 'src/pages', 'src/hooks', 'public', '.neucli'];
 

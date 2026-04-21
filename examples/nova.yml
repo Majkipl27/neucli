@@ -1,0 +1,527 @@
+meta:
+  name: Nova
+  description: A design-first toolkit for shipping product-grade sites from YAML.
+  lang: en
+  favicon: /favicon.svg
+theme:
+  colors:
+    primary: '#7c3aed'
+    accent: '#06b6d4'
+    highlight: '#f472b6'
+    surface: '#0f172a'
+  fonts:
+    heading: Inter, system-ui, sans-serif
+    body: Inter, system-ui, sans-serif
+pages:
+  - path: /
+    name: Home
+    title: Nova - Ship product-grade sites in minutes
+    meta:
+      description: A design-forward toolkit for teams who care about craft.
+    sections:
+      - type: navbar
+        className: sticky top-0 z-50 bg-slate-950/80 text-white backdrop-blur-md border-b border-white/5
+        props:
+          brand: Nova
+          links:
+            - label: Features
+              href: /#features
+            - label: Pricing
+              href: /pricing
+            - label: Changelog
+              href: /changelog
+            - label: Docs
+              href: https://docs.example.com
+      - type: hero
+        className: bg-gradient-to-b from-violet-600/20 via-slate-950 to-slate-950 text-white
+        props:
+          title: Websites, without the chaos.
+          subtitle: Nova turns a single YAML file into a production React site. Opinionated defaults, full control when you need it.
+        children:
+          - type: button
+            className: bg-white text-slate-900 px-7 py-3.5 rounded-full font-semibold shadow-xl shadow-violet-500/30 hover:shadow-violet-500/50 transition
+            props:
+              label: Start building
+              href: /pricing
+          - type: button
+            className: text-white px-7 py-3.5 rounded-full font-medium border border-white/20 hover:bg-white/5 transition
+            props:
+              label: Read the docs
+              href: '#'
+      - type: section
+        className: bg-slate-950 text-white
+        props:
+          title: ''
+        children:
+          - type: grid
+            className: '-mt-4 items-center'
+            props:
+              columns: 5
+            children:
+              - type: text
+                className: text-xs font-mono uppercase tracking-[0.2em] text-white/30
+                props:
+                  tag: p
+                  content: Trusted by teams at
+              - type: text
+                className: text-center text-sm font-semibold text-white/60
+                props:
+                  tag: p
+                  content: Linear
+              - type: text
+                className: text-center text-sm font-semibold text-white/60
+                props:
+                  tag: p
+                  content: Vercel
+              - type: text
+                className: text-center text-sm font-semibold text-white/60
+                props:
+                  tag: p
+                  content: Stripe
+              - type: text
+                className: text-center text-sm font-semibold text-white/60
+                props:
+                  tag: p
+                  content: Framer
+      - type: section
+        className: bg-slate-950 text-white
+        props:
+          title: Built for shipping
+        children:
+          - type: text
+            className: text-lg text-white/60 max-w-2xl -mt-4 mb-12
+            props:
+              tag: p
+              content: Stop fighting your tools. Nova gives you the primitives to go from zero to polished in an afternoon, not a sprint.
+          - type: grid
+            props:
+              columns: 3
+            children:
+              - type: card
+                className: rounded-2xl bg-slate-900 ring-1 ring-white/10 hover:ring-violet-500/40 transition
+                props:
+                  title: Zero config
+                  description: Import YAML. Nova handles routing, theming, and deployment. No build configs to babysit.
+                  image: ''
+              - type: card
+                className: rounded-2xl bg-slate-900 ring-1 ring-white/10 hover:ring-cyan-500/40 transition
+                props:
+                  title: Design tokens, live
+                  description: Define colors and fonts once. Nova wires them up as CSS variables and every block uses them.
+                  image: ''
+              - type: card
+                className: rounded-2xl bg-slate-900 ring-1 ring-white/10 hover:ring-pink-500/40 transition
+                props:
+                  title: Fully typed
+                  description: Every block, every prop, every theme token. TypeScript types ship with every release.
+                  image: ''
+      - type: section
+        className: bg-slate-900 text-white border-y border-white/5
+        props:
+          title: ''
+        children:
+          - type: grid
+            className: items-center
+            props:
+              columns: 4
+            children:
+              - type: text
+                className: text-center text-5xl font-bold bg-gradient-to-br from-violet-400 to-cyan-400 bg-clip-text text-transparent
+                props:
+                  tag: p
+                  content: 10×
+              - type: text
+                className: text-center text-5xl font-bold bg-gradient-to-br from-violet-400 to-cyan-400 bg-clip-text text-transparent
+                props:
+                  tag: p
+                  content: 99.99%
+              - type: text
+                className: text-center text-5xl font-bold bg-gradient-to-br from-violet-400 to-cyan-400 bg-clip-text text-transparent
+                props:
+                  tag: p
+                  content: <40ms
+              - type: text
+                className: text-center text-5xl font-bold bg-gradient-to-br from-violet-400 to-cyan-400 bg-clip-text text-transparent
+                props:
+                  tag: p
+                  content: 2k+
+          - type: grid
+            className: '-mt-4'
+            props:
+              columns: 4
+            children:
+              - type: text
+                className: text-center text-xs uppercase tracking-[0.2em] text-white/40
+                props:
+                  tag: p
+                  content: Faster to ship
+              - type: text
+                className: text-center text-xs uppercase tracking-[0.2em] text-white/40
+                props:
+                  tag: p
+                  content: Edge uptime
+              - type: text
+                className: text-center text-xs uppercase tracking-[0.2em] text-white/40
+                props:
+                  tag: p
+                  content: Median TTFB
+              - type: text
+                className: text-center text-xs uppercase tracking-[0.2em] text-white/40
+                props:
+                  tag: p
+                  content: Sites in production
+      - type: section
+        className: bg-slate-950 text-white
+        props:
+          title: Composition over configuration
+        children:
+          - type: grid
+            className: items-center gap-12
+            props:
+              columns: 2
+            children:
+              - type: container
+                className: space-y-5
+                children:
+                  - type: text
+                    className: text-xl text-white/70 leading-relaxed
+                    props:
+                      tag: p
+                      content: Every piece of the page is a block. Every block is a line of YAML. Drop them in, rearrange, theme them, and you have a site that would take a week to write by hand.
+                  - type: text
+                    className: text-sm text-white/40 leading-relaxed
+                    props:
+                      tag: p
+                      content: Blocks compose. Themes cascade. Deploys are instant. It is the web stack you wish you already had.
+                  - type: button
+                    className: inline-flex items-center bg-violet-500 hover:bg-violet-400 text-white px-6 py-3 rounded-full font-medium transition
+                    props:
+                      label: See it in action
+                      href: '#'
+              - type: image
+                className: rounded-2xl ring-1 ring-white/10 shadow-2xl shadow-black/50
+                props:
+                  src: https://placehold.co/900x700/0f172a/7c3aed/png?text=%3C%2F%3E
+                  alt: Nova editor preview
+      - type: section
+        className: bg-gradient-to-br from-violet-600 via-indigo-600 to-cyan-500 text-white
+        props:
+          title: Start shipping today.
+        children:
+          - type: text
+            className: text-xl text-white/90 -mt-4 mb-10 max-w-xl mx-auto text-center
+            props:
+              tag: p
+              content: Free forever for indie projects. Two minutes to your first deploy. No credit card. No nonsense.
+          - type: container
+            className: flex flex-wrap gap-4 justify-center
+            children:
+              - type: button
+                className: bg-white text-violet-700 px-8 py-3.5 rounded-full font-bold hover:bg-violet-50 transition shadow-xl shadow-black/10
+                props:
+                  label: Get started free
+                  href: /pricing
+              - type: button
+                className: border border-white/40 text-white px-8 py-3.5 rounded-full font-semibold hover:bg-white/10 transition
+                props:
+                  label: Talk to us
+                  href: '#'
+      - type: footer
+        className: bg-slate-950 text-slate-500 border-t border-white/5
+        props:
+          text: © 2026 Nova Labs. Built with Neucli.
+          links:
+            - label: GitHub
+              href: https://github.com
+            - label: Discord
+              href: https://discord.gg
+            - label: Twitter
+              href: https://twitter.com
+            - label: Privacy
+              href: /privacy
+            - label: Terms
+              href: /terms
+  - path: /pricing
+    name: Pricing
+    title: Pricing - Nova
+    meta:
+      description: Simple pricing. Start free, scale when you are ready.
+    sections:
+      - type: navbar
+        className: sticky top-0 z-50 bg-slate-950/80 text-white backdrop-blur-md border-b border-white/5
+        props:
+          brand: Nova
+          links:
+            - label: Features
+              href: /#features
+            - label: Pricing
+              href: /pricing
+            - label: Changelog
+              href: /changelog
+            - label: Docs
+              href: https://docs.example.com
+      - type: hero
+        className: bg-slate-950 text-white
+        props:
+          title: Simple pricing. No surprises.
+          subtitle: Start free. Upgrade when you outgrow it. Downgrade whenever you want.
+      - type: section
+        className: bg-slate-950 text-white -mt-8
+        props:
+          title: ''
+        children:
+          - type: grid
+            props:
+              columns: 3
+            children:
+              - type: card
+                className: rounded-2xl bg-slate-900 ring-1 ring-white/10
+                props:
+                  title: Hobby
+                  description: For weekend projects and personal sites. One project, community support, all core blocks.
+                  image: ''
+                children:
+                  - type: text
+                    className: text-4xl font-bold mt-2 mb-6 text-white
+                    props:
+                      tag: p
+                      content: $0
+                  - type: button
+                    className: w-full bg-white/10 hover:bg-white/15 text-white px-6 py-3 rounded-lg font-semibold transition
+                    props:
+                      label: Start free
+                      href: '#'
+              - type: card
+                className: rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-700 ring-1 ring-violet-400/30 shadow-2xl shadow-violet-500/20
+                props:
+                  title: Pro
+                  description: Unlimited projects, custom domains, priority support, and the shiny analytics dashboard.
+                  image: ''
+                children:
+                  - type: text
+                    className: text-4xl font-bold mt-2 mb-1 text-white
+                    props:
+                      tag: p
+                      content: $19
+                  - type: text
+                    className: text-sm text-white/70 mb-6
+                    props:
+                      tag: p
+                      content: per month, billed annually
+                  - type: button
+                    className: w-full bg-white text-violet-700 px-6 py-3 rounded-lg font-bold hover:bg-violet-50 transition
+                    props:
+                      label: Start 14-day trial
+                      href: '#'
+              - type: card
+                className: rounded-2xl bg-slate-900 ring-1 ring-white/10
+                props:
+                  title: Team
+                  description: Everything in Pro plus SSO, audit logs, dedicated support, and a signed SLA.
+                  image: ''
+                children:
+                  - type: text
+                    className: text-4xl font-bold mt-2 mb-6 text-white
+                    props:
+                      tag: p
+                      content: Custom
+                  - type: button
+                    className: w-full bg-white/10 hover:bg-white/15 text-white px-6 py-3 rounded-lg font-semibold transition
+                    props:
+                      label: Contact sales
+                      href: '#'
+      - type: section
+        className: bg-slate-950 text-white border-t border-white/5
+        props:
+          title: Frequently asked
+        children:
+          - type: grid
+            props:
+              columns: 2
+            children:
+              - type: container
+                className: space-y-2
+                children:
+                  - type: text
+                    className: text-base font-semibold text-white
+                    props:
+                      tag: h3
+                      content: What happens when I upgrade?
+                  - type: text
+                    className: text-sm text-white/60 leading-relaxed
+                    props:
+                      tag: p
+                      content: Your workspace unlocks the Pro feature set the second you switch plans. No deploy, no migration, no fuss.
+              - type: container
+                className: space-y-2
+                children:
+                  - type: text
+                    className: text-base font-semibold text-white
+                    props:
+                      tag: h3
+                      content: Is there a free tier forever?
+                  - type: text
+                    className: text-sm text-white/60 leading-relaxed
+                    props:
+                      tag: p
+                      content: Yes. One project, community support, no time limit. Perfect for indie hackers and side projects.
+              - type: container
+                className: space-y-2
+                children:
+                  - type: text
+                    className: text-base font-semibold text-white
+                    props:
+                      tag: h3
+                      content: Can I self-host?
+                  - type: text
+                    className: text-sm text-white/60 leading-relaxed
+                    props:
+                      tag: p
+                      content: The CLI is MIT licensed. Deploy anywhere that runs Node. Our cloud is just the easy-mode button.
+              - type: container
+                className: space-y-2
+                children:
+                  - type: text
+                    className: text-base font-semibold text-white
+                    props:
+                      tag: h3
+                      content: Do you offer refunds?
+                  - type: text
+                    className: text-sm text-white/60 leading-relaxed
+                    props:
+                      tag: p
+                      content: Within 30 days, no questions asked. Email hello@nova.dev and it is done.
+      - type: footer
+        className: bg-slate-950 text-slate-500 border-t border-white/5
+        props:
+          text: © 2026 Nova Labs. Built with Neucli.
+          links:
+            - label: GitHub
+              href: https://github.com
+            - label: Discord
+              href: https://discord.gg
+            - label: Twitter
+              href: https://twitter.com
+            - label: Privacy
+              href: /privacy
+            - label: Terms
+              href: /terms
+  - path: /changelog
+    name: Changelog
+    title: Changelog - Nova
+    meta:
+      description: Everything we shipped, in reverse chronological order.
+    sections:
+      - type: navbar
+        className: sticky top-0 z-50 bg-slate-950/80 text-white backdrop-blur-md border-b border-white/5
+        props:
+          brand: Nova
+          links:
+            - label: Features
+              href: /#features
+            - label: Pricing
+              href: /pricing
+            - label: Changelog
+              href: /changelog
+            - label: Docs
+              href: https://docs.example.com
+      - type: hero
+        className: bg-slate-950 text-white
+        props:
+          title: What is new.
+          subtitle: Every release, every tweak. The full history of how Nova got to today.
+      - type: section
+        className: bg-slate-950 text-white
+        props:
+          title: ''
+        children:
+          - type: container
+            className: space-y-10 max-w-3xl mx-auto
+            children:
+              - type: container
+                className: border-l-2 border-violet-500/60 pl-6 space-y-3
+                children:
+                  - type: text
+                    className: text-xs font-mono uppercase tracking-[0.2em] text-violet-400
+                    props:
+                      tag: p
+                      content: v2.0  -  Apr 21, 2026
+                  - type: text
+                    className: text-2xl font-bold text-white
+                    props:
+                      tag: h3
+                      content: The great redesign
+                  - type: text
+                    className: text-base text-white/60 leading-relaxed
+                    props:
+                      tag: p
+                      content: A ground-up rewrite of the editor around a block registry, a Zustand store, and a proper design-token system. 40% smaller bundle, instant undo, and a preview that finally matches production.
+              - type: container
+                className: border-l-2 border-cyan-500/60 pl-6 space-y-3
+                children:
+                  - type: text
+                    className: text-xs font-mono uppercase tracking-[0.2em] text-cyan-400
+                    props:
+                      tag: p
+                      content: v1.8  -  Mar 02, 2026
+                  - type: text
+                    className: text-2xl font-bold text-white
+                    props:
+                      tag: h3
+                      content: Keyboard everything
+                  - type: text
+                    className: text-base text-white/60 leading-relaxed
+                    props:
+                      tag: p
+                      content: Undo, redo, duplicate, copy, paste, export, escape. Every motion-critical action now has a shortcut. Mouse optional.
+              - type: container
+                className: border-l-2 border-pink-500/60 pl-6 space-y-3
+                children:
+                  - type: text
+                    className: text-xs font-mono uppercase tracking-[0.2em] text-pink-400
+                    props:
+                      tag: p
+                      content: v1.6  -  Jan 14, 2026
+                  - type: text
+                    className: text-2xl font-bold text-white
+                    props:
+                      tag: h3
+                      content: Design tokens, live
+                  - type: text
+                    className: text-base text-white/60 leading-relaxed
+                    props:
+                      tag: p
+                      content: Define colors and fonts in the left sidebar, apply them from the right. CSS variables under the hood, so theming is free.
+              - type: container
+                className: border-l-2 border-white/10 pl-6 space-y-3
+                children:
+                  - type: text
+                    className: text-xs font-mono uppercase tracking-[0.2em] text-white/40
+                    props:
+                      tag: p
+                      content: v1.0  -  Sep 09, 2025
+                  - type: text
+                    className: text-2xl font-bold text-white
+                    props:
+                      tag: h3
+                      content: Nova is here
+                  - type: text
+                    className: text-base text-white/60 leading-relaxed
+                    props:
+                      tag: p
+                      content: First public release. Four block types, two themes, one terrible logo. We have fixed two of those.
+      - type: footer
+        className: bg-slate-950 text-slate-500 border-t border-white/5
+        props:
+          text: © 2026 Nova Labs. Built with Neucli.
+          links:
+            - label: GitHub
+              href: https://github.com
+            - label: Discord
+              href: https://discord.gg
+            - label: Twitter
+              href: https://twitter.com
+            - label: Privacy
+              href: /privacy
+            - label: Terms
+              href: /terms

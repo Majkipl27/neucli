@@ -1,4 +1,4 @@
-import { Config, Node } from './types.js';
+import type { Config, Node } from './types.ts';
 
 export function validateConfig(config: Config): Config {
   const errors: string[] = [];

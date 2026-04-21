@@ -1,5 +1,5 @@
-import { resolveComponentTemplate } from './componentResolver.js';
-import { Page, Config, Node } from './types.js';
+import { resolveComponentTemplate } from './componentResolver.ts';
+import type { Page, Config, Node } from './types.ts';
 
 export function buildPageSource(page: Page, globals: Config['globals']): string {
   const imports = new Map<string, string>();

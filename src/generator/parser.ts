@@ -1,6 +1,6 @@
 import fs from 'fs';
 import yaml from 'js-yaml';
-import { Config } from './types.js';
+import type { Config } from './types.ts';
 
 export function parseConfig(configPath: string): Config {
   if (!fs.existsSync(configPath)) {

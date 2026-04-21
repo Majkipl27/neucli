@@ -1,4 +1,4 @@
-import { Config, AnalysisResult } from './types.js';
+import type { Config, AnalysisResult } from './types.ts';
 
 export function analyzeFeatures(config: Config): AnalysisResult {
   const features = {

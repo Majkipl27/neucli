@@ -1,7 +1,7 @@
 import path from 'path';
 import chalk from 'chalk';
 import fs from 'fs';
-import { runPipeline } from '../generator/index.js';
+import { runPipeline } from '../generator/index.ts';
 
 export async function generate(configPath: string, options: { output: string; keepStale?: boolean }) {
   const resolvedConfig = path.resolve(configPath);

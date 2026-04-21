@@ -1,4 +1,4 @@
-import { Config, Node } from './types.js';
+import type { Config, Node } from './types.ts';
 
 const BUILT_IN_COMPONENTS = [
   'navbar', 'hero', 'section', 'container', 'grid',

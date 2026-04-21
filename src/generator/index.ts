@@ -1,15 +1,15 @@
 import fs from 'fs';
 import path from 'path';
 import chalk from 'chalk';
-import { parseConfig } from './parser.js';
-import { validateConfig } from './validator.js';
-import { scaffoldProject } from './scaffolder.js';
-import { renderTemplate } from './renderer.js';
-import { resolveComponentTemplate, collectComponentTypes } from './componentResolver.js';
-import { buildPageSource, sanitizeName, buildJSX } from './pageBuilder.js';
-import { DiffReport, writeIfChanged, removeStaleFiles } from './differ.js';
-import { analyzeFeatures } from './features.js';
-import { Config, Node } from './types.js';
+import { parseConfig } from './parser.ts';
+import { validateConfig } from './validator.ts';
+import { scaffoldProject } from './scaffolder.ts';
+import { renderTemplate } from './renderer.ts';
+import { resolveComponentTemplate, collectComponentTypes } from './componentResolver.ts';
+import { buildPageSource, sanitizeName, buildJSX } from './pageBuilder.ts';
+import { DiffReport, writeIfChanged, removeStaleFiles } from './differ.ts';
+import { analyzeFeatures } from './features.ts';
+import type { Config, Node } from './types.ts';
 
 const STATUS_ICONS = {
   added: chalk.green('+'),

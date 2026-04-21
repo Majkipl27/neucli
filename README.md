@@ -62,11 +62,10 @@ pages:
 - [x] Global layout persistence.
 
 ### Roadmap
-- [ ] **Web CMS**: A visual, browser-based editor for managing configurations.
+- [x] **Web CMS**: A visual, browser-based editor for managing configurations.
 - [ ] **AppShell Layouts**: Modular sidebar and dashboard layout presets.
 - [ ] **Expanded Component Library**: Built-in Accordions, Modals, and Carousels.
-- [ ] **Deployment CLI**: One-click deployment to popular hosting providers.
 
 ## License
 
-Open sourced under the MIT License.
+Open sourced under the GNU GPL License.
