@@ -13,7 +13,7 @@ export {
   BREAKPOINTS, VARIANT, COLUMN_FLOWS, STYLE_KEYS, SIZING_KEYS,
 } from './style/compile.ts';
 export type { Flow, Flows, StyleKind, StyleSource, Part } from './style/compile.ts';
-export { parseColor } from './style/color.ts';
+export { parseColor, PALETTE_FAMILIES, PALETTE_SHADES } from './style/color.ts';
 export { themeCss, googleFontsUrl } from './theme.ts';
 export { PRIMITIVE_COMPONENTS, RESERVED_NAMES, RESERVED_PROPS, pageComponentName } from './names.ts';
 export {

@@ -3,12 +3,16 @@
  * optional `/opacity` suffix (0-100).
  */
 
-const PALETTE = new Set([
+/** Tailwind v4 palette families, in Tailwind's own order (the editor's color picker shows them). */
+export const PALETTE_FAMILIES = [
   'slate', 'gray', 'zinc', 'neutral', 'stone', 'red', 'orange', 'amber', 'yellow', 'lime', 'green',
   'emerald', 'teal', 'cyan', 'sky', 'blue', 'indigo', 'violet', 'purple', 'fuchsia', 'pink', 'rose',
   'mauve', 'olive', 'mist', 'taupe',
-]);
-const SHADES = new Set(['50', '100', '200', '300', '400', '500', '600', '700', '800', '900', '950']);
+] as const;
+export const PALETTE_SHADES = ['50', '100', '200', '300', '400', '500', '600', '700', '800', '900', '950'] as const;
+
+const PALETTE = new Set<string>(PALETTE_FAMILIES);
+const SHADES = new Set<string>(PALETTE_SHADES);
 const KEYWORDS = new Set(['white', 'black', 'transparent', 'current', 'inherit']);
 
 export interface ColorCheck {
