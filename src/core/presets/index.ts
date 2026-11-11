@@ -174,6 +174,224 @@ const Stat: ComponentDef = {
   } as Node,
 };
 
+
+// --- interactive blocks ---------------------------------------------------------
+
+const AccordionItem: ComponentDef = {
+  props: {
+    question: { type: 'text', default: 'A question people ask before buying' },
+    answer: { type: 'text', default: 'A short, direct answer. Two sentences at most.' },
+  },
+  root: {
+    type: 'frame',
+    state: { open: false },
+    border: { color: 'slate-200', sides: 'bottom' },
+    children: [
+      {
+        type: 'frame',
+        tag: 'button',
+        on: { click: 'toggle open' },
+        width: 'fill',
+        layout: { direction: 'row', justify: 'between', align: 'center', gap: 16, padding: [16, 0] },
+        font: { size: 16, weight: 600, align: 'left' },
+        className: 'cursor-pointer',
+        children: [
+          { type: 'text', tag: 'span', content: '{question}' },
+          {
+            type: 'text', tag: 'span', content: '+', color: 'slate-400', font: { size: 20 },
+            attrs: { 'aria-hidden': 'true' },
+            className: 'transition-transform',
+            when: { open: { className: 'rotate-45' } },
+          },
+        ],
+      },
+      {
+        type: 'frame',
+        visibleWhen: 'open',
+        layout: { padding: [0, 0, 16, 0] },
+        color: 'slate-600',
+        children: [{ type: 'text', content: '{answer}' }],
+      },
+    ],
+  } as Node,
+};
+
+const Accordion: ComponentDef = {
+  root: {
+    type: 'frame',
+    width: 'fill',
+    maxWidth: 768,
+    border: { color: 'slate-200', sides: 'top' },
+    children: [
+      { type: 'AccordionItem', props: { question: 'How long does setup take?', answer: 'About ten minutes: write the YAML, run the generator, deploy the build folder.' } },
+      { type: 'AccordionItem', props: { question: 'Can I edit the generated code?', answer: 'Yes. It is plain React and Tailwind, so you can take it from there.' } },
+      { type: 'AccordionItem', props: { question: 'Does it work without JavaScript?', answer: 'The pages render with React, so JavaScript is required.' } },
+    ],
+  } as Node,
+};
+
+const tabButton = (label: string, i: number): Node => ({
+  type: 'frame',
+  tag: 'button',
+  on: { click: `set tab ${i}` },
+  attrs: { role: 'tab', 'aria-selected': `{tab == ${i}}` },
+  layout: { padding: [10, 14] },
+  color: 'slate-500',
+  font: { size: 14, weight: 500 },
+  border: { width: 2, color: 'transparent', sides: 'bottom' },
+  className: '-mb-px cursor-pointer hover:text-slate-900 transition-colors',
+  when: { [`tab == ${i}`]: { color: 'slate-900', border: { color: 'slate-900' } } },
+  children: [{ type: 'text', tag: 'span', content: label }],
+} as Node);
+
+const tabPanel = (i: number, title: string, body: string): Node => ({
+  type: 'frame',
+  visibleWhen: `tab == ${i}`,
+  attrs: { role: 'tabpanel' },
+  layout: { gap: 8 },
+  children: [
+    { type: 'text', tag: 'h3', content: title, font: { size: 18, weight: 600 } },
+    { type: 'text', content: body, color: 'slate-600' },
+  ],
+} as Node);
+
+const Tabs: ComponentDef = {
+  root: {
+    type: 'frame',
+    state: { tab: 0 },
+    width: 'fill',
+    layout: { gap: 20 },
+    children: [
+      {
+        type: 'frame',
+        attrs: { role: 'tablist' },
+        layout: { direction: 'row', gap: 4 },
+        border: { color: 'slate-200', sides: 'bottom' },
+        children: [tabButton('Overview', 0), tabButton('Pricing', 1), tabButton('FAQ', 2)],
+      },
+      tabPanel(0, 'Overview', 'What it is and who it is for, in a paragraph.'),
+      tabPanel(1, 'Pricing', 'Free for one project. Teams pay per seat, monthly or yearly.'),
+      tabPanel(2, 'FAQ', 'Put the questions people ask in sales calls here.'),
+    ],
+  } as Node,
+};
+
+const SLIDE_FILLS: [string, string][] = [['indigo-500', 'violet-600'], ['sky-500', 'indigo-600'], ['emerald-500', 'teal-600']];
+
+const Carousel: ComponentDef = {
+  root: {
+    type: 'frame',
+    state: { slide: 0 },
+    width: 'fill',
+    layout: { gap: 16 },
+    attrs: { 'aria-roledescription': 'carousel' },
+    children: [
+      {
+        type: 'frame',
+        name: 'Slides',
+        height: 320,
+        radius: 12,
+        clip: true,
+        attrs: { 'aria-live': 'polite' },
+        responsive: { phone: { height: 220 } },
+        children: SLIDE_FILLS.map(([from, to], i) => ({
+          type: 'frame',
+          name: `Slide ${i + 1}`,
+          visibleWhen: `slide == ${i}`,
+          height: 'fill',
+          layout: { align: 'center', justify: 'center' },
+          fill: { gradient: 'to-br', from, to },
+          color: 'white',
+          attrs: { 'aria-roledescription': 'slide', 'aria-label': `${i + 1} of 3` },
+          children: [{ type: 'text', content: `Slide ${i + 1}`, font: { size: 32, weight: 700 } }],
+        })) as Node[],
+      },
+      {
+        type: 'frame',
+        name: 'Controls',
+        layout: { direction: 'row', justify: 'between', align: 'center' },
+        children: [
+          {
+            type: 'frame', tag: 'button', on: { click: 'prev slide of 3' }, attrs: { 'aria-label': 'Previous slide' },
+            layout: { padding: [8, 14] }, radius: 8, border: { color: 'slate-300' }, font: { size: 14, weight: 500 },
+            className: 'cursor-pointer hover:bg-slate-50',
+            children: [{ type: 'text', tag: 'span', content: 'Previous' }],
+          },
+          {
+            type: 'frame',
+            name: 'Dots',
+            layout: { direction: 'row', gap: 8, align: 'center' },
+            children: [0, 1, 2].map(i => ({
+              type: 'frame', tag: 'button', on: { click: `set slide ${i}` },
+              attrs: { 'aria-label': `Go to slide ${i + 1}`, 'aria-current': `{slide == ${i}}` },
+              width: 10, height: 10, radius: 'full', fill: 'slate-300',
+              className: 'cursor-pointer',
+              when: { [`slide == ${i}`]: { fill: 'slate-900' } },
+            })) as Node[],
+          },
+          {
+            type: 'frame', tag: 'button', on: { click: 'next slide of 3' }, attrs: { 'aria-label': 'Next slide' },
+            layout: { padding: [8, 14] }, radius: 8, border: { color: 'slate-300' }, font: { size: 14, weight: 500 },
+            className: 'cursor-pointer hover:bg-slate-50',
+            children: [{ type: 'text', tag: 'span', content: 'Next' }],
+          },
+        ],
+      },
+    ],
+  } as Node,
+};
+
+const Modal: ComponentDef = {
+  props: {
+    label: { type: 'text', default: 'Open dialog' },
+    title: { type: 'text', default: 'Dialog title' },
+    body: { type: 'text', default: 'Say what happens next and what the person needs to decide.' },
+  },
+  root: {
+    type: 'frame',
+    state: { open: false },
+    layout: { align: 'start' },
+    children: [
+      {
+        type: 'frame', tag: 'button', on: { click: 'set open true' },
+        layout: { padding: [10, 18] }, fill: 'slate-900', color: 'white', radius: 8, font: { size: 14, weight: 600 },
+        className: 'cursor-pointer hover:opacity-90',
+        children: [{ type: 'text', tag: 'span', content: '{label}' }],
+      },
+      {
+        type: 'frame',
+        tag: 'dialog',
+        visibleWhen: 'open',
+        width: 480,
+        maxWidth: '90%',
+        layout: { gap: 12, padding: 24 },
+        fill: 'white',
+        color: 'slate-900',
+        radius: 12,
+        shadow: 'xl',
+        attrs: { 'aria-labelledby': 'modal-title' },
+        className: 'm-auto backdrop:bg-slate-950/50',
+        children: [
+          { type: 'text', tag: 'h2', id: 'modal-title', content: '{title}', font: { size: 20, weight: 600 } },
+          { type: 'text', content: '{body}', color: 'slate-600' },
+          {
+            type: 'frame',
+            layout: { direction: 'row', justify: 'end', padding: [8, 0, 0, 0] },
+            children: [
+              {
+                type: 'frame', tag: 'button', on: { click: 'set open false' },
+                layout: { padding: [8, 14] }, radius: 8, border: { color: 'slate-300' }, font: { size: 14, weight: 500 },
+                className: 'cursor-pointer hover:bg-slate-50',
+                children: [{ type: 'text', tag: 'span', content: 'Close' }],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  } as Node,
+};
+
 // --- layouts ------------------------------------------------------------------
 
 const Marketing: ComponentDef = {
@@ -209,6 +427,8 @@ const SidebarApp: ComponentDef = {
   },
   root: {
     type: 'frame',
+    // On phone the sidebar hides behind a Menu button in the header.
+    state: { menu: false },
     layout: { direction: 'row' },
     minHeight: 'screen',
     fill: 'slate-50',
@@ -224,7 +444,8 @@ const SidebarApp: ComponentDef = {
         fill: 'slate-900',
         color: 'slate-300',
         font: { size: 14 },
-        responsive: { phone: { width: 'fill', layout: { direction: 'row', gap: 4, padding: [12, 16], wrap: true } } },
+        responsive: { phone: { width: 'fill', hidden: true, layout: { direction: 'row', gap: 4, padding: [12, 16], wrap: true } } },
+        when: { menu: { hidden: false } },
         children: [
           brandBlock,
           sideLink('Overview', '/app'),
@@ -244,7 +465,17 @@ const SidebarApp: ComponentDef = {
             fill: 'white',
             border: { color: 'slate-200', sides: 'bottom' },
             responsive: { phone: { layout: { padding: [12, 16] } } },
-            children: [{ type: 'text', tag: 'h1', content: '{title}', font: { size: 20, weight: 600 } }],
+            children: [
+              { type: 'text', tag: 'h1', content: '{title}', font: { size: 20, weight: 600 } },
+              {
+                type: 'frame', tag: 'button', on: { click: 'toggle menu' },
+                hidden: true,
+                responsive: { phone: { hidden: false } },
+                layout: { padding: [6, 12] }, radius: 6, border: { color: 'slate-300' }, font: { size: 14, weight: 500 },
+                className: 'cursor-pointer',
+                children: [{ type: 'text', tag: 'span', content: 'Menu' }],
+              },
+            ],
           },
           {
             type: 'frame',
@@ -335,7 +566,7 @@ const Dashboard: ComponentDef = {
 
 export const PRESETS: Preset[] = [
   { id: 'marketing', name: 'Marketing', label: 'Marketing', kind: 'layout', description: 'Navbar, page content, footer.', components: { Marketing, Navbar, Footer } },
-  { id: 'sidebar-app', name: 'SidebarApp', label: 'Sidebar app', kind: 'layout', description: 'Fixed sidebar nav, header, content. Stacks on phone.', components: { SidebarApp } },
+  { id: 'sidebar-app', name: 'SidebarApp', label: 'Sidebar app', kind: 'layout', description: 'Fixed sidebar nav, header, content. On phone a Menu button opens the nav.', components: { SidebarApp } },
   { id: 'dashboard', name: 'Dashboard', label: 'Dashboard', kind: 'layout', description: 'Sidebar, top bar with search, content grid.', components: { Dashboard } },
   { id: 'navbar', name: 'Navbar', label: 'Navbar', kind: 'block', description: 'Brand, links and an actions slot.', components: { Navbar } },
   { id: 'hero', name: 'Hero', label: 'Hero', kind: 'block', description: 'Big title, subtitle, a slot for buttons.', components: { Hero } },
@@ -344,6 +575,10 @@ export const PRESETS: Preset[] = [
   { id: 'button', name: 'Button', label: 'Button', kind: 'block', description: 'Link styled as a button.', components: { Button } },
   { id: 'stat', name: 'Stat', label: 'Stat', kind: 'block', description: 'A number with a label.', components: { Stat } },
   { id: 'footer', name: 'Footer', label: 'Footer', kind: 'block', description: 'Copyright line and links.', components: { Footer } },
+  { id: 'accordion', name: 'Accordion', label: 'Accordion', kind: 'block', description: 'FAQ items that open and close.', components: { Accordion, AccordionItem } },
+  { id: 'tabs', name: 'Tabs', label: 'Tabs', kind: 'block', description: 'Three tabs with panels.', components: { Tabs } },
+  { id: 'carousel', name: 'Carousel', label: 'Carousel', kind: 'block', description: 'Slides with previous, next and dots.', components: { Carousel } },
+  { id: 'modal', name: 'Modal', label: 'Modal', kind: 'block', description: 'A button that opens a dialog. Esc closes it.', components: { Modal } },
 ];
 
 export function getPreset(id: string): Preset | undefined {
