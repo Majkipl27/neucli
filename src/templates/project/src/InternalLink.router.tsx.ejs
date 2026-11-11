@@ -1,0 +1,11 @@
+import type { AnchorHTMLAttributes } from 'react';
+import { Link } from 'react-router-dom';
+
+export interface InternalLinkProps extends AnchorHTMLAttributes<HTMLAnchorElement> {
+  href: string;
+}
+
+/** Link to a page of this site, client-side through React Router. */
+export default function InternalLink({ href, ...rest }: InternalLinkProps) {
+  return <Link to={href} {...rest} />;
+}

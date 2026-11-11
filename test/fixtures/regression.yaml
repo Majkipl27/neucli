@@ -1,47 +1,219 @@
 # Regression cases for the generator. Must generate and typecheck cleanly.
 meta:
   name: Regression
+  description: "it's <fine> & \"quoted\""
+
+theme:
+  colors:
+    brand: "#7c3aed"
+  fonts:
+    heading: Space Grotesk
+    body: IBM Plex Sans, sans-serif
+
+layout: Shell
+
 components:
-  # `tag` must be honoured; `badge` is only used inside this component.
-  promo-box:
-    tag: aside
-    children:
-      - type: badge
-        text: New
-      - type: inner-note
-  # Nested custom component only reachable through promo-box.
-  InnerNote:
-    tag: span
+  Shell:
+    root:
+      type: frame
+      tag: div
+      minHeight: screen
+      children:
+        - type: Nav
+        - type: frame
+          tag: main
+          height: fill
+          children:
+            - type: slot
+
+  # Only reachable through Shell: still needs a file.
+  Nav:
+    root:
+      type: frame
+      tag: nav
+      layout: { direction: row, justify: between, align: center, padding: [16, 24] }
+      responsive:
+        phone:
+          layout: { direction: column, gap: 8 }
+      children:
+        - type: link
+          href: /
+          content: Home
+        - type: link
+          href: /about#team
+          content: Team
+        - type: link
+          href: https://example.com
+          newTab: true
+          content: External
+
+  Badge:
+    props:
+      label: { type: text, default: New }
+    root:
+      type: text
+      tag: span
+      content: "{label}"
+      fill: brand/10
+      color: brand
+      radius: full
+      font: { size: 12, weight: 600 }
+
+  Card:
+    props:
+      title: text
+      count: number
+      featured: boolean
+      image: image
+    root:
+      type: frame
+      width: fill
+      layout: { gap: 12, padding: 24 }
+      fill: white
+      border: { color: slate-200 }
+      radius: 12
+      children:
+        - type: image
+          src: "{image}"
+          alt: "{title}"
+          fit: cover
+          height: 192
+        - type: text
+          tag: h3
+          content: "{title}"
+        - type: text
+          content: "Seen {count} times, literal {not code} and `ticks` ${'{'}x}"
+        - type: frame
+          layout: { direction: row, gap: 8 }
+          children:
+            - type: slot
+            - type: slot
+              name: actions
+
+  Counter:
+    imports:
+      - "import { useState } from 'react';"
     logic: |
-      const who = { name: 'Ada' };
-    children:
-      - type: text
-        props:
-          content: "Hi {who.name}, literal {not code} and `ticks` ${'{'}x}"
+      const [count, setCount] = useState(0);
+      const increment = () => setCount((c) => c + 1);
+    root:
+      type: frame
+      layout: { align: center, gap: 16 }
+      children:
+        - type: text
+          content: "Count is {count}"
+        - type: frame
+          tag: button
+          attrs:
+            type: button
+            onClick: "{increment}"
+          children:
+            - type: text
+              tag: span
+              content: Add 1
+
+  # Never used: must not be generated.
+  Unused:
+    root: { type: text, content: unused }
+
+  # Root is another component's instance.
+  FeaturedCard:
+    props:
+      title: text
+    root:
+      type: Card
+      width: 320
+      props:
+        title: "Featured: {title}"
+        featured: true
+
 pages:
   - path: /
     name: Home
     title: "Quotes \" and `backticks` and ${injection}"
-    meta:
-      description: "it's <fine>"
+    description: "it's <fine>"
     sections:
-      - type: text
-        text: "Price < 10 {not code} & more > less"
-      - type: text
-        text: "Plain text stays plain"
-      - type: text
-        className: 'say "hi"'
-        props:
-          content: "Tom & Jerry \"quoted\""
-      - type: button
-        attrs:
-          aria-label: Open menu
-          data-testid: open-menu
-        props:
-          label: "Open {menu}"
-      - type: promo-box
+      - type: frame
+        id: hero
+        tag: section
+        layout: { direction: row, gap: 32, padding: [96, 24], align: center }
+        fill: { gradient: to-b, from: brand/20, via: slate-950, to: slate-950 }
+        color: white
+        responsive:
+          tablet:
+            layout: { gap: 16 }
+          phone:
+            layout: { direction: column, padding: [48, 16] }
+        children:
+          - type: text
+            tag: h1
+            content: "Price < 10 {not code} & more > less"
+            width: fill
+            font: { family: heading, size: 48, weight: 700, tracking: -0.025 }
+            responsive:
+              phone:
+                font: { size: 30 }
+          - type: Badge
+          - type: Badge
+            props: { label: 2026 }
+            hidden: false
+            responsive:
+              phone: { hidden: true }
+      - type: frame
+        layout: { direction: grid, columns: 3, gap: 24, padding: 24 }
+        responsive:
+          tablet: { layout: { columns: 2 } }
+          phone: { layout: { columns: 1 } }
+        children:
+          - type: Card
+            props: { title: One, count: 3, featured: false, image: /one.png }
+            attrs:
+              aria-label: First card
+              data-testid: card-one
+            children:
+              - type: link
+                href: /about
+                content: "Open {menu}"
+            slots:
+              actions:
+                - type: link
+                  href: "#"
+                  layout: { padding: [8, 16] }
+                  fill: brand
+                  color: white
+                  radius: 8
+                  content: Buy
+          - type: FeaturedCard
+            props: { title: Two }
+          - type: Card
+            width: hug
+            props: { title: Three, count: 1 }
+      - type: frame
+        tag: form
+        layout: { gap: 12, padding: 24 }
+        maxWidth: 672
+        children:
+          - type: input
+            field: email
+            inputType: email
+            placeholder: "you@example.com"
+            required: true
+            width: fill
+          - type: input
+            field: message
+            multiline: true
+            placeholder: Say hi
+          - type: Counter
+
   - path: /about
     name: About
     sections:
       - type: text
-        text: About
+        id: team
+        content: About
+  - path: /bare
+    name: bare page!
+    layout: false
+    sections:
+      - type: text
+        content: "  leading spaces stay  "

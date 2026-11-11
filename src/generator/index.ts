@@ -1,15 +1,13 @@
 import fs from 'fs';
 import path from 'path';
 import chalk from 'chalk';
-import { parseConfig } from './parser.ts';
-import { validateConfig } from './validator.ts';
-import { scaffoldProject } from './scaffolder.ts';
-import { renderTemplate } from './renderer.ts';
-import { resolveComponentTemplate, collectComponentTypes, findComponentDef } from './componentResolver.ts';
-import { buildPageSource, sanitizeName, buildJSX } from './pageBuilder.ts';
+import { readConfig } from './parser.ts';
+import { scaffoldProject, usesRouting } from './project.ts';
+import { appSource, componentSource, layoutOf, pageSource, slotParentFlows } from './codegen.ts';
 import { DiffReport, writeIfChanged, removeStaleFiles } from './differ.ts';
-import { analyzeFeatures } from './features.ts';
-import type { Config, Node } from './types.ts';
+import { OUT } from './paths.ts';
+import { validate, pageComponentName, instancesIn, COLUMN_FLOWS } from '../core/index.ts';
+import type { Config } from '../core/index.ts';
 
 const STATUS_ICONS = {
   added: chalk.green('+'),
@@ -17,116 +15,87 @@ const STATUS_ICONS = {
   unchanged: chalk.dim('✓'),
 };
 
-export async function runPipeline(
-  configPath: string, 
-  outputDir: string, 
-  options: { keepStale?: boolean } = {}
-): Promise<DiffReport> {
-  const report = new DiffReport();
-  const keepStale = options.keepStale || false;
+export interface PipelineOptions {
+  keepStale?: boolean;
+  /** Silence progress output (tests). */
+  quiet?: boolean;
+}
 
-  console.log(chalk.dim('  Parsing config...'));
-  const config = parseConfig(configPath);
+/** Parse + validate; throws with every error listed. */
+export function loadConfig(configPath: string): { config: Config; warnings: string[] } {
+  const result = validate(readConfig(configPath));
+  if (!result.config) {
+    throw new Error(`Config validation failed:\n${result.errors.map(e => `  - ${e}`).join('\n')}`);
+  }
+  return { config: result.config, warnings: result.warnings };
+}
 
-  console.log(chalk.dim('  Validating...'));
-  validateConfig(config);
-
-  const { features, dependencies } = analyzeFeatures(config);
-
-  const navbarJSX = (config.globals?.navbar ? buildJSX(config.globals.navbar, 6) : null) ?? null;
-  const footerJSX = (config.globals?.footer ? buildJSX(config.globals.footer, 6) : null) ?? null;
-  
-  const globalImports = new Set<string>();
-  const collectGlobals = (n: Node | undefined) => {
-    if (!n) return;
-    const { componentName } = resolveComponentTemplate(n.type);
-    globalImports.add(`import ${componentName} from './components/${componentName}';`);
-    if (n.children) n.children.forEach(collectGlobals);
-  };
-  collectGlobals(config.globals?.navbar);
-  collectGlobals(config.globals?.footer);
-
-  console.log(chalk.dim('  Scaffolding project...'));
-  scaffoldProject(config, outputDir, report, features, dependencies, navbarJSX, footerJSX, Array.from(globalImports));
-
-  console.log(chalk.dim('  Generating components...'));
-  const componentTypes = collectComponentTypes(config);
-  const currentComponentFiles = new Set<string>();
-
-  for (const type of componentTypes) {
-    const { templatePath, componentName, isBuiltIn, originalType } = resolveComponentTemplate(type);
-    
-    let customLogic: string | null = null;
-    let customImports: string[] | null = null;
-    let innerJSX: string | null = null;
-    let defaultTag = originalType;
-    if (!isBuiltIn) {
-      const cmpDef = findComponentDef(config, type);
-      if (cmpDef) {
-        customLogic = cmpDef.logic || null;
-        customImports = cmpDef.imports || null;
-        if (cmpDef.tag) defaultTag = cmpDef.tag;
-        if (cmpDef.children && cmpDef.children.length > 0) {
-          innerJSX = cmpDef.children.map(c => buildJSX(c, 6, true)).filter(Boolean).join('\n');
-          
-          const deps = new Set<string>();
-          const walkDeps = (n: Node) => {
-             const { componentName: depName } = resolveComponentTemplate(n.type);
-             deps.add(`import ${depName} from './${depName}';`);
-             if (n.children) n.children.forEach(walkDeps);
-          };
-          cmpDef.children.forEach(walkDeps);
-          
-          customImports = [...(customImports || []), ...deps];
-        }
-      }
+/** Components reachable from pages and layouts; unused definitions aren't generated. */
+function usedComponents(config: Config): string[] {
+  const used = new Set<string>();
+  const queue: string[] = [];
+  const add = (name: string) => {
+    if (!used.has(name)) {
+      used.add(name);
+      queue.push(name);
     }
-
-    const data = isBuiltIn 
-      ? { features } 
-      : { componentName, defaultTag, features, logic: customLogic, imports: customImports, innerJSX };
-    
-    const content = renderTemplate(templatePath, data);
-    const fileName = `${componentName}.tsx`;
-    currentComponentFiles.add(fileName);
-    const outputPath = path.join(outputDir, 'src', 'components', fileName);
-    const status = writeIfChanged(outputPath, content, report);
-    console.log(`    ${STATUS_ICONS[status]} ${componentName} (${status})`);
-  }
-
-  if (!keepStale) {
-    const componentsDir = path.join(outputDir, 'src', 'components');
-    removeStaleFiles(componentsDir, currentComponentFiles, report);
-  }
-
-  console.log(chalk.dim('  Generating pages...'));
-  const currentPageFiles = new Set<string>();
-
+  };
   for (const page of config.pages) {
-    const pageName = sanitizeName(page.name);
-    const source = buildPageSource(page, config.globals);
-    const fileName = `${pageName}.tsx`;
-    currentPageFiles.add(fileName);
-    const outputPath = path.join(outputDir, 'src', 'pages', fileName);
-    const status = writeIfChanged(outputPath, source, report);
-    console.log(`    ${STATUS_ICONS[status]} ${pageName} (${status})`);
+    page.sections.forEach(s => instancesIn(s).forEach(add));
+    const layout = layoutOf(config, page);
+    if (layout) add(layout);
+  }
+  while (queue.length) {
+    const def = config.components?.[queue.pop()!];
+    if (def?.root) instancesIn(def.root).forEach(add);
+  }
+  return [...used].sort();
+}
+
+export async function runPipeline(configPath: string, outputDir: string, options: PipelineOptions = {}): Promise<DiffReport> {
+  const log = options.quiet ? () => {} : (msg: string) => console.log(msg);
+  const report = new DiffReport();
+
+  log(chalk.dim('  Reading and validating config...'));
+  const { config, warnings } = loadConfig(configPath);
+  for (const w of warnings) log(chalk.yellow(`  ! ${w}`));
+
+  for (const [name, def] of Object.entries(config.components ?? {})) {
+    if (def.file) throw new Error(`components.${name}.file: file components arrive in Phase 8; use root for now`);
   }
 
-  if (!keepStale) {
-    const pagesDir = path.join(outputDir, 'src', 'pages');
-    removeStaleFiles(pagesDir, currentPageFiles, report);
-  }
+  log(chalk.dim('  Scaffolding project...'));
+  const primitives = scaffoldProject(config, outputDir, report);
+  if (!options.keepStale) removeStaleFiles(path.join(outputDir, OUT.primitives), primitives, report);
 
-  const configSnapshot = fs.readFileSync(configPath, 'utf-8');
-  writeIfChanged(
-    path.join(outputDir, '.neucli', 'config.lock.yaml'),
-    configSnapshot,
-    report
-  );
+  log(chalk.dim('  Generating components...'));
+  const componentFiles = new Set<string>();
+  for (const name of usedComponents(config)) {
+    const file = `${name}.tsx`;
+    componentFiles.add(file);
+    const status = writeIfChanged(path.join(outputDir, OUT.components, file), componentSource(config, name, config.components![name]), report);
+    log(`    ${STATUS_ICONS[status]} ${name} (${status})`);
+  }
+  if (!options.keepStale) removeStaleFiles(path.join(outputDir, OUT.components), componentFiles, report);
+
+  log(chalk.dim('  Generating pages...'));
+  const pageFiles = new Set<string>();
+  for (const page of config.pages) {
+    const name = pageComponentName(page.name);
+    const layout = layoutOf(config, page);
+    const parent = layout ? slotParentFlows(config, layout, undefined) : COLUMN_FLOWS;
+    const file = `${name}.tsx`;
+    pageFiles.add(file);
+    const status = writeIfChanged(path.join(outputDir, OUT.pages, file), pageSource(config, page, parent), report);
+    log(`    ${STATUS_ICONS[status]} ${name} (${status})`);
+  }
+  if (!options.keepStale) removeStaleFiles(path.join(outputDir, OUT.pages), pageFiles, report);
+
+  writeIfChanged(path.join(outputDir, OUT.app), appSource(config, usesRouting(config)), report);
+  writeIfChanged(path.join(outputDir, OUT.lock), fs.readFileSync(configPath, 'utf-8'), report);
 
   for (const removed of report.removed) {
-    const name = path.basename(removed, '.tsx');
-    console.log(`    ${chalk.red('✗')} ${name} (removed)`);
+    log(`    ${chalk.red('✗')} ${path.basename(removed, '.tsx')} (removed)`);
   }
 
   return report;
