@@ -21,7 +21,7 @@ It's a portfolio piece with no deadline. It should be finished and polished, not
 | Generated code | Safe zones. neucli owns `src/neucli/` and overwrites it every run. You own `src/custom/`, which neucli never touches. Custom `.tsx` plugs in from YAML via `file:`. Inline `logic:` in YAML stays supported. Hand-editing a generated file gets a warning instead of a silent overwrite. |
 | Repos | Two repos stay. The CLI stays standalone. Shared code (schema, style compiler, primitives) lives in this repo and is exported as `neucli/core`. The editor depends on it. |
 | Old format | Breaks. The two example configs get migrated once by hand. No permanent migrator. |
-| Browser export | The editor can download the generated project as a zip. Phase 9, only when Tomasz asks for it. |
+| Browser export | Dropped, with the rest of Phase 9 (2026-11-11). |
 | Tailwind | v4 for generated projects and the editor canvas. |
 | License | MIT, both repos. |
 
@@ -235,7 +235,7 @@ Deviations:
 - **The editor isn't changed.** Core exports `isFileComponent(def)`, and the render helpers (`rootOverrides`, `rootKind`, `componentRestClasses`...) no longer assume a `root`. The canvas still needs a labelled placeholder for `file:` instances.
 - **`.neucli/config.lock.yaml` is still written.** It's how an old-layout folder is recognised, and it records the config the output came from.
 
-### Phase 9 — Ship it (on hold: only start when Tomasz says so)
+### Phase 9 — Ship it (dropped 2026-11-11: not needed, the project stops at Phase 8)
 - [ ] Download project as zip from the editor
 - [ ] Hosted editor demo with an example site loaded
 - [ ] README rewrite with a GIF; docs for the format
