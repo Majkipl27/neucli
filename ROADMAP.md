@@ -17,7 +17,7 @@ It's a portfolio piece with no deadline. It should be finished and polished, not
 | Responsive | Desktop is the base. Any node can override values for `tablet` / `phone` under `responsive:`. |
 | Components | Components declare their props. An instance fills them in. Like Figma, a copy can override `fill`, `color`, `border` and sizing while staying linked; the copy's value wins. You can also **detach** an instance (Figma's "detach instance"): it turns into a plain copy you edit freely. |
 | Layouts (AppShell) | A layout is a component with a `slot` where the page goes. Pages pick one with `layout:`. Navbar/footer, sidebar and dashboard shells ship as presets. |
-| Interactivity | Generic state + actions. A node can hold `state`, children trigger actions (`on: { click: toggle open }`), and `visibleWhen` shows/hides. Accordion, Modal, Carousel, Tabs are presets built on this. |
+| Interactivity | Generic state + actions. A node can hold `state`, children trigger actions (`on: { click: toggle open }`), `visibleWhen` shows/hides, and `when` styles a node while a condition holds. Accordion, Modal, Carousel, Tabs are presets built on this. |
 | Generated code | Safe zones. neucli owns `src/neucli/` and overwrites it every run. You own `src/custom/`, which neucli never touches. Custom `.tsx` plugs in from YAML via `file:`. Inline `logic:` in YAML stays supported. Hand-editing a generated file gets a warning instead of a silent overwrite. |
 | Repos | Two repos stay. The CLI stays standalone. Shared code (schema, style compiler, primitives) lives in this repo and is exported as `neucli/core`. The editor depends on it. |
 | Old format | Breaks. The two example configs get migrated once by hand. No permanent migrator. |
@@ -179,14 +179,27 @@ Checked in the editor with real input (create component with text props, prop re
 - **Slots**: Component ▸ Slot inserts the default slot first, then named ones (`actions`, `slot3`...). On the main component slots render as dashed placeholders, selectable, with a name field. While dragging on a page, an instance's empty named slots show drop targets, so a first item can go in (Phase 3 couldn't).
 - **Presets** live in core (`src/core/presets/`): layouts Marketing, Sidebar app, Dashboard; blocks Navbar, Hero, Section, Card, Button, Stat, Footer. Palette colors only, so they suit any theme. `insertPreset` copies definitions into `components:`, reuses an identical definition under any name, and renames on a clash (`Navbar2`) with references following. The page panel's layout picker can pick a layout or create one from a preset (or a blank one), for the page or as the site default; the Component menu inserts library blocks.
 - The canvas now renders a layout's props with their defaults, as the generated route layout does (it used to show `{brand}` literally).
-- A sidebar layout's phone toggle is Phase 6; on phone the sidebar becomes a wrapped bar above the content.
+- A sidebar layout's phone toggle came in Phase 6 (a Menu button on phone).
 - Layer tree drag (left sidebar) still can't target an empty named slot; drag on the canvas instead.
 - Bound text inside a nested instance on a main component isn't editable in place (as on pages, only an instance's own `{textProp}` text is).
 
 ### Phase 6 — Interactions
-- [ ] `state`, `on`, `visibleWhen` in the schema; generated as `useState` + handlers
-- [ ] Live on the canvas in a "preview" mode
-- [ ] Presets: Accordion, Modal, Carousel, Tabs
+- [x] `state`, `on`, `visibleWhen` in the schema; generated as `useState` + handlers
+- [x] Live on the canvas in a "preview" mode
+- [x] Presets: Accordion, Modal, Carousel, Tabs
+
+The format is in docs/format.md (Interactions). In short: `state:` on a frame, one action per event (`toggle open`, `set tab 2`, `increment count`, `next slide of 3`), one-comparison conditions (`open`, `!open`, `tab == 2`) for `visibleWhen`, `when:` keys and live `{condition}` attributes, and `when: { <condition>: <style overrides> }` for state styles (first match wins). One parser/evaluator in `src/core/interactions.ts` serves validation, codegen and the canvas.
+
+Verified by `npm test` (83 tests, including a fixture with every action, page-level state with a name collision, a dialog and a form, typechecked and built), the generated preset site clicked through in a browser at desktop and phone width with mouse and keyboard (Enter/Space on buttons, Esc and backdrop close the modal, focus returns to its trigger, the SidebarApp Menu on phone), and the editor: Preview runs the Counter, Accordion, Modal and a panel-built action; edit mode previews state values without touching the document; state styles edited through the style panel land in `when:`; an edited document exported, generated and built.
+
+- **`when` (state styles)**: added beyond the original sketch so a selected tab or an open accordion can look different. It can't change `layout.direction`, and on a component root it can't set the keys instances override.
+- **Generated code**: state hoists to `useState` in the file's function (a repeated name becomes `open2`). Handlers use React's updater form. Clickable frames that aren't `tag: button` get `{...onPress(...)}` (role, tabIndex, Enter/Space) from a new `press.ts` primitive. A `toggle` adds `aria-expanded` (and `aria-controls` when the shown node has an id). `tag: dialog` frames become a new `Dialog` primitive, a native `<dialog>` with `showModal()` that's mounted only while open; layout classes like `flex` would otherwise beat the browser's display:none.
+- **Canvas**: the editor doesn't add the ARIA attributes (`aria-expanded`, `aria-haspopup`); behaviour and classes match. In Preview, Tailwind recompiles when new classes appear, internal links switch the editor's page, forms don't submit, and modal dialogs center in the visible part of the (page-tall) iframe.
+- **Edit-mode previews** work for state on page nodes and on an open main component. State inside a component instance on a page (an AccordionItem's `open`) can only be tried in Preview, because component internals aren't selectable on a page.
+- **Panel**: renaming a state variable doesn't rewrite the actions and conditions that use it. Validation flags them, and the fields turn amber.
+- **Tabs**: arrow-key navigation between tabs isn't generated (Tab/Enter/Space work).
+- **Counter** in landing-page.yaml uses `state` + `increment count` now; `logic:` stays only for the lucide icon.
+- Fixed in passing: an override dot on a panel section title was a `<button>` inside a `<button>`.
 
 ### Phase 7 — Infinite canvas
 - [ ] All pages on one zoomable board
@@ -208,3 +221,9 @@ Checked in the editor with real input (create component with text props, prop re
 - [x] `InnerNote` and `inner-note` produce different file names that collide on macOS. Component names must now be PascalCase and match exactly; near-misses get a "did you mean".
 - [x] `/#anchor` links don't scroll when React Router is on. Generated apps with routing include `ScrollToHash`.
 - [x] A custom component named like a built-in is silently ignored. There are no built-ins any more, and names the generated code uses (`Frame`, `Text`, `App`...) are rejected with an error.
+
+## Known issues
+
+- An `id` written inside a component is repeated in every copy, so two copies on one page give duplicate ids (and `aria-controls` targets). Fix: derive ids per instance (e.g. React's `useId`) when an id sits inside a component.
+- Tabs have no arrow-key navigation yet.
+- Renaming a state variable in the panel doesn't rewrite the actions and conditions that use it; validation flags them.
