@@ -77,7 +77,7 @@ pages:
             props: { title: Fast, image: /fast.png }
 ```
 
-Exact key names get settled in Phase 1, when the schema is written.
+Exact key names were settled in Phase 1; the reference is [docs/format.md](docs/format.md).
 
 ## Phases
 
@@ -90,13 +90,24 @@ The order puts the canvas feel first, as agreed (direct manipulation → panel �
 - [x] Validator catches component cycles, page name/path collisions, reserved names
 - [x] `npm test` smoke test: generates the examples and typechecks the output
 
-### Phase 1 — New format and `neucli/core` (CLI repo)
-- [ ] zod schema for the new format, used by both the CLI and the editor
-- [ ] Style compiler: structured values + responsive overrides → Tailwind classes (on-scale values snap to the scale, e.g. gap 20 → `gap-5`; off-scale values use arbitrary classes)
-- [ ] Primitive React components (`Frame`, `Text`, `Image`, `Link`), one source used both in generated projects and on the editor canvas
-- [ ] Code generator rewritten on top of core; incremental rebuild kept
-- [ ] Migrate `examples/nova.yml` and `examples/landing-page.yaml`
-- [ ] Export `neucli/core` for the editor
+### Phase 1 — New format and `neucli/core` (CLI repo) ✅ (uncommitted)
+- [x] zod schema for the new format, used by both the CLI and the editor
+- [x] Style compiler: structured values + responsive overrides → Tailwind classes (on-scale values snap to the scale, e.g. gap 20 → `gap-5`; off-scale values use arbitrary classes)
+- [x] Primitive React components (`Frame`, `Text`, `Image`, `Link`), one source used both in generated projects and on the editor canvas
+- [x] Code generator rewritten on top of core; incremental rebuild kept
+- [x] Migrate `examples/nova.yml` and `examples/landing-page.yaml`
+- [x] Export `neucli/core` for the editor
+- [x] The three issues folded in below
+
+Deviations and additions:
+- **`input` primitive added.** The landing page has a contact form and nothing else could render `<input>`/`<textarea>`.
+- **Typography key is `font`, not `text`** (the sample above used `text: { size, weight }`), because `text` is already a node type.
+- **Generated projects moved to React 19, Vite 7, Tailwind v4** (`@tailwindcss/vite`, no tailwind.config.js or PostCSS config). Fonts and colors live in an `@theme` block in `src/index.css`.
+- **`neucli/core` is split in two exports**: `neucli/core` (pure TS: types, schema, validation, style compiler, theme CSS) and `neucli/core/primitives` (the React components). The CLI runs on Node's native TypeScript support, which can't load `.tsx`.
+- **`file:` components and `state`/`on`/`visibleWhen` are in the schema but not generated**, as planned for Phases 8 and 6. `file:` fails with a clear error; interactions print a warning.
+- **Unused components aren't generated** any more; only those reachable from pages and layouts get files.
+- **Old pages wrapped content in `<main className="flex-grow">`**; now the layout component decides everything, including the `<main>`.
+- **`removeStaleFiles` still deletes anything in the generated folders it didn't write** (Phase 8 fixes this with a manifest).
 
 ### Phase 2 — Truthful canvas (editor)
 - [ ] Editor document model switched to `neucli/core`'s schema
@@ -144,8 +155,8 @@ The order puts the canvas feel first, as agreed (direct manipulation → panel �
 - [ ] Hosted editor demo with an example site loaded
 - [ ] README rewrite with a GIF; docs for the format
 
-## Folded into Phase 1
+## Folded into Phase 1 ✅
 
-- `InnerNote` and `inner-note` produce different file names that collide on macOS
-- `/#anchor` links don't scroll when React Router is on
-- A custom component named like a built-in is silently ignored
+- [x] `InnerNote` and `inner-note` produce different file names that collide on macOS. Component names must now be PascalCase and match exactly; near-misses get a "did you mean".
+- [x] `/#anchor` links don't scroll when React Router is on. Generated apps with routing include `ScrollToHash`.
+- [x] A custom component named like a built-in is silently ignored. There are no built-ins any more, and names the generated code uses (`Frame`, `Text`, `App`...) are rejected with an error.

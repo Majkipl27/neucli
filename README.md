@@ -38,18 +38,28 @@ theme:
   colors:
     primary: "#6366f1"
   fonts:
-    heading: "Inter"
+    heading: Space Grotesk
 
 pages:
   - path: /
     name: Home
     title: Welcome to Neucli
     sections:
-      - type: hero
-        props:
-          title: Build faster than ever.
-          subtitle: From YAML to Production.
+      - type: frame
+        tag: section
+        layout: { align: center, gap: 16, padding: [96, 24] }
+        fill: primary
+        color: white
+        children:
+          - type: text
+            tag: h1
+            content: Build faster than ever.
+            font: { family: heading, size: 48, weight: 700 }
+          - type: text
+            content: From YAML to React.
 ```
+
+The full format is in [docs/format.md](docs/format.md). `examples/` has two complete sites.
 
 ## Project Status
 

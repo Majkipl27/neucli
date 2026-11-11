@@ -4,173 +4,321 @@ meta:
   lang: en
 
 dependencies:
-  "lucide-react": "^0.300.0"
+  lucide-react: ^1.0.0
 
 theme:
   colors:
-    primary: "#6366f1"
-    secondary: "#ec4899"
-    accent: "#f59e0b"
+    primary: '#6366f1'
+    secondary: '#ec4899'
+    accent: '#f59e0b'
   fonts:
     heading: Inter
     body: Inter
 
+layout: Main
+
 components:
-  custom-counter:
-    tag: div
+  Main:
+    root:
+      type: frame
+      minHeight: screen
+      children:
+        - type: Navbar
+        - type: frame
+          tag: main
+          height: fill
+          children:
+            - type: slot
+        - type: Footer
+
+  Navbar:
+    root:
+      type: frame
+      tag: nav
+      layout: { align: center, padding: [16, 32] }
+      fill: white
+      shadow: sm
+      responsive:
+        phone: { layout: { padding: [16, 16] } }
+      children:
+        - type: frame
+          width: 100%
+          maxWidth: 1280
+          layout: { direction: row, justify: between, align: center }
+          children:
+            - type: link
+              href: /
+              content: Acme
+              font: { size: 20, weight: 700 }
+            - type: frame
+              layout: { direction: row, gap: 24, align: center }
+              children:
+                - { type: link, href: /#features, content: Features, className: hover:opacity-80 transition-opacity }
+                - { type: link, href: /#about, content: About, className: hover:opacity-80 transition-opacity }
+                - { type: link, href: /#contact, content: Contact, className: hover:opacity-80 transition-opacity }
+
+  Footer:
+    root:
+      type: frame
+      tag: footer
+      layout: { align: center, padding: [32, 32] }
+      fill: gray-900
+      color: white
+      children:
+        - type: frame
+          width: 100%
+          maxWidth: 1280
+          layout: { gap: 16 }
+          children:
+            - type: frame
+              layout: { direction: row, gap: 24 }
+              children:
+                - { type: link, href: '#', content: Privacy, className: hover:opacity-80 transition-opacity }
+                - { type: link, href: '#', content: Terms, className: hover:opacity-80 transition-opacity }
+            - type: text
+              content: © 2026 Acme Corp. All rights reserved.
+              opacity: 0.6
+
+  Section:
+    props:
+      title: text
+    root:
+      type: frame
+      tag: section
+      layout: { align: center, padding: [64, 32] }
+      responsive:
+        phone: { layout: { padding: [48, 16] } }
+      children:
+        - type: frame
+          width: 100%
+          maxWidth: 1280
+          layout: { gap: 32 }
+          children:
+            - type: text
+              tag: h2
+              content: '{title}'
+              font: { size: 30, weight: 700 }
+            - type: slot
+
+  Card:
+    props:
+      title: text
+      description: text
+    root:
+      type: frame
+      layout: { gap: 8, padding: 24 }
+      fill: gray-50
+      border: { color: gray-200 }
+      radius: 8
+      children:
+        - type: text
+          tag: h3
+          content: '{title}'
+          font: { size: 20, weight: 600 }
+        - type: text
+          content: '{description}'
+          opacity: 0.8
+
+  # Custom logic and imports stay inline in YAML.
+  Counter:
     imports:
       - "import { useState } from 'react';"
       - "import { Activity } from 'lucide-react';"
     logic: |
       const [count, setCount] = useState(0);
       const increment = () => setCount((c) => c + 1);
-    children:
-      - type: text
-        className: text-2xl font-bold
-        props:
-          content: "Count is currently: {count}"
-      - type: button
-        className: bg-indigo-600 text-white font-semibold rounded-lg px-8 py-3 hover:bg-indigo-700 transition-colors
-        props:
-          label: Add 1
-          onClick: "{increment}"
-
-globals:
-  navbar:
-    type: navbar
-    className: bg-white shadow-sm
-    props:
-      brand: Acme
-      links:
-        - label: Features
-          href: "#features"
-        - label: About
-          href: "#about"
-        - label: Contact
-          href: "#contact"
-
-  footer:
-    type: footer
-    className: bg-gray-900 text-white
-    props:
-      text: "© 2026 Acme Corp. All rights reserved."
-      links:
-        - label: Privacy
-          href: "#"
-        - label: Terms
-          href: "#"
+      const icon = <Activity size={20} />;
+    root:
+      type: frame
+      layout: { align: center, gap: 16, padding: 32 }
+      fill: white
+      color: gray-800
+      radius: 12
+      shadow: lg
+      children:
+        - type: frame
+          layout: { direction: row, gap: 8, align: center }
+          children:
+            - type: text
+              tag: span
+              content: '{icon}'
+            - type: text
+              content: 'Count is currently: {count}'
+              font: { size: 24, weight: 700 }
+        - type: frame
+          tag: button
+          attrs:
+            type: button
+            onClick: '{increment}'
+          layout: { padding: [12, 32] }
+          fill: indigo-600
+          color: white
+          radius: 8
+          font: { weight: 600 }
+          className: hover:bg-indigo-700 transition-colors
+          children:
+            - { type: text, tag: span, content: Add 1 }
 
 pages:
   - path: /
     name: Home
     title: Acme Corp — Building the Future
-    meta:
-      description: Acme Corp helps you build beautiful websites faster.
+    description: Acme Corp helps you build beautiful websites faster.
     sections:
-      - type: hero
-        className: bg-gradient-to-br from-indigo-600 to-purple-700 text-white min-h-[60vh] flex items-center
-        props:
-          title: Build Beautiful Websites
-          subtitle: From config to production-ready React code in seconds.
+      - type: frame
+        tag: section
+        minHeight: 60vh
+        layout: { align: center, justify: center, padding: [96, 32] }
+        fill: { gradient: to-br, from: indigo-600, to: purple-700 }
+        color: white
         children:
-          - type: button
-            props:
-              label: Get Started
-              href: "#features"
-            className: bg-white text-indigo-600 font-semibold rounded-lg px-8 py-3 hover:bg-gray-100 transition-colors
-          - type: button
-            props:
-              label: Learn More
-              href: "/about"
-            className: border-2 border-white text-white font-semibold rounded-lg px-8 py-3 hover:bg-white/10 transition-colors
+          - type: frame
+            width: 100%
+            maxWidth: 1280
+            layout: { align: center, gap: 24 }
+            font: { align: center }
+            children:
+              - type: text
+                tag: h1
+                content: Build Beautiful Websites
+                font: { size: 48, weight: 700, tracking: -0.025 }
+              - type: text
+                content: From config to production-ready React code in seconds.
+                font: { size: 20 }
+                opacity: 0.9
+              - type: frame
+                layout: { direction: row, gap: 16, justify: center, wrap: true, padding: [16, 0, 0, 0] }
+                children:
+                  - type: link
+                    href: /#features
+                    content: Get Started
+                    layout: { padding: [12, 32] }
+                    fill: white
+                    color: indigo-600
+                    radius: 8
+                    font: { weight: 600 }
+                    className: hover:bg-gray-100 transition-colors
+                  - type: link
+                    href: /about
+                    content: Learn More
+                    layout: { padding: [12, 32] }
+                    border: { width: 2, color: white }
+                    radius: 8
+                    font: { weight: 600 }
+                    className: hover:bg-white/10 transition-colors
 
-      - type: section
+      - type: Section
         id: features
         className: bg-white
-        props:
-          title: Features
+        props: { title: Features }
         children:
-          - type: grid
-            props:
-              columns: 3
-            className: mt-4
+          - type: frame
+            layout: { direction: grid, columns: 3, gap: 24 }
+            responsive:
+              tablet: { layout: { columns: 2 } }
+              phone: { layout: { columns: 1 } }
             children:
-              - type: card
-                className: bg-gray-50 border border-gray-200
+              - type: Card
                 props:
                   title: Lightning Fast
                   description: Generate complete React projects in seconds, not hours.
-              - type: card
-                className: bg-gray-50 border border-gray-200
+              - type: Card
                 props:
                   title: Fully Customizable
                   description: Tailwind CSS classes give you complete control over every pixel.
-              - type: card
-                className: bg-gray-50 border border-gray-200
+              - type: Card
                 props:
                   title: Production Ready
                   description: Clean, typed, well-structured code you can ship with confidence.
 
-      - type: section
+      - type: Section
         id: about
         className: bg-gray-50
-        props:
-          title: About Us
+        props: { title: About Us }
         children:
           - type: text
-            props:
-              content: We believe developers should own their code. No vendor lock-in, no black boxes — just clean React components generated from a simple YAML config.
-            className: text-lg text-gray-600 max-w-3xl
-          - type: button
-            props:
-              label: Learn More
-              href: "/about"
-            className: border-2 border-orange-400 text-orange-400 font-semibold rounded-lg px-8 py-3 hover:bg-orange-400/10 transition-colors
+            content: We believe developers should own their code. No vendor lock-in, no black boxes — just clean React components generated from a simple YAML config.
+            color: gray-600
+            maxWidth: 768
+            font: { size: 18 }
+          - type: link
+            href: /about
+            content: Learn More
+            width: hug
+            layout: { padding: [12, 32] }
+            border: { width: 2, color: orange-400 }
+            color: orange-400
+            radius: 8
+            font: { weight: 600 }
+            className: hover:bg-orange-400/10 transition-colors
 
-      - type: section
+      - type: Section
         id: contact
-        className: bg-gradient-to-tr from-orange-400 to-red-500 text-white
-        props:
-          title: Contact Us
+        className: bg-linear-to-tr from-orange-400 to-red-500 text-white
+        props: { title: Contact Us }
         children:
-          - type: form
-            className: bg-white text-gray-900 p-8 rounded-lg shadow-lg flex flex-col gap-4 *:w-full
+          - type: frame
+            tag: form
+            layout: { gap: 16, padding: 32 }
+            fill: white
+            color: gray-900
+            radius: 8
+            shadow: lg
             children:
               - type: input
-                tag: input
-                props:
-                  name: name
-                  label: Name
-                  placeholder: "Enter your name"
+                field: name
+                placeholder: Enter your name
+                border: { color: gray-300 }
+                radius: 6
+                className: px-3 py-2
               - type: input
-                tag: input
-                props:
-                  name: email
-                  label: Email
-                  placeholder: "Enter your email"
-              - type: textarea
-                tag: textarea
-                props:
-                  name: message
-                  label: Message
-                  placeholder: "Enter your message"
-              - type: button
-                props:
-                  label: Send Message
-                  className: bg-orange-500 text-white font-semibold rounded-lg px-8 py-3 hover:bg-orange-600 ml-auto transition-colors
+                field: email
+                inputType: email
+                placeholder: Enter your email
+                border: { color: gray-300 }
+                radius: 6
+                className: px-3 py-2
+              - type: input
+                field: message
+                multiline: true
+                placeholder: Enter your message
+                height: 128
+                border: { color: gray-300 }
+                radius: 6
+                className: px-3 py-2
+              - type: frame
+                tag: button
+                attrs: { type: submit }
+                width: hug
+                layout: { padding: [12, 32] }
+                fill: orange-500
+                color: white
+                radius: 8
+                font: { weight: 600 }
+                className: self-end hover:bg-orange-600 transition-colors
+                children:
+                  - { type: text, tag: span, content: Send Message }
+
   - path: /about
     name: About
     title: About — Acme Corp
     sections:
-      - type: section
-        className: py-24 min-h-[60vh] flex items-center justify-center
-        props:
-          title: This is the About Page
+      - type: frame
+        tag: section
+        minHeight: 60vh
+        layout: { align: center, justify: center, gap: 32, padding: [96, 32] }
         children:
-          - type: custom-counter
-            className: flex flex-col items-center gap-4 bg-white p-8 rounded-xl shadow-lg text-gray-800
-          - type: button
-            className: bg-indigo-600 text-white font-semibold rounded-lg px-8 py-3 hover:bg-indigo-700 transition-colors mt-8
-            props:
-              label: Back to Home
-              href: "/"
+          - type: text
+            tag: h2
+            content: This is the About Page
+            font: { size: 30, weight: 700 }
+          - type: Counter
+          - type: link
+            href: /
+            content: Back to Home
+            layout: { padding: [12, 32] }
+            fill: indigo-600
+            color: white
+            radius: 8
+            font: { weight: 600 }
+            className: hover:bg-indigo-700 transition-colors
