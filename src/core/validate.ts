@@ -1,7 +1,7 @@
 /**
  * Full validation: structure (schema.ts) plus everything that needs the whole
  * config — component references, props, slots, layouts, theme tokens, cycles
- * and name collisions. Used by the CLI and, later, the editor.
+ * and name collisions. Used by the CLI and the editor.
  */
 
 import type { ComponentDef, Config, InstanceNode, Node, PropDef } from './types.ts';

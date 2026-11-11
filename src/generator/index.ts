@@ -3,10 +3,10 @@ import path from 'path';
 import chalk from 'chalk';
 import { readConfig } from './parser.ts';
 import { scaffoldProject, usesRouting } from './project.ts';
-import { appSource, componentSource, layoutOf, pageSource, slotParentFlows } from './codegen.ts';
+import { appSource, componentSource, pageSource } from './codegen.ts';
 import { DiffReport, writeIfChanged, removeStaleFiles } from './differ.ts';
 import { OUT } from './paths.ts';
-import { validate, pageComponentName, instancesIn, COLUMN_FLOWS } from '../core/index.ts';
+import { validate, pageComponentName, instancesIn, pageParentFlows, layoutOf } from '../core/index.ts';
 import type { Config } from '../core/index.ts';
 
 const STATUS_ICONS = {
@@ -82,8 +82,7 @@ export async function runPipeline(configPath: string, outputDir: string, options
   const pageFiles = new Set<string>();
   for (const page of config.pages) {
     const name = pageComponentName(page.name);
-    const layout = layoutOf(config, page);
-    const parent = layout ? slotParentFlows(config, layout, undefined) : COLUMN_FLOWS;
+    const parent = pageParentFlows(config, page);
     const file = `${name}.tsx`;
     pageFiles.add(file);
     const status = writeIfChanged(path.join(outputDir, OUT.pages, file), pageSource(config, page, parent), report);

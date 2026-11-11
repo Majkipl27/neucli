@@ -7,12 +7,10 @@
  */
 
 import {
-  COLUMN_FLOWS, childFlows, compileClasses, joinClasses, mergeStyle, resolveStyle, styleOf, BREAKPOINTS,
-  PRIMITIVE_COMPONENTS, collectSlots, pageComponentName, isInstance,
+  COLUMN_FLOWS, childFlows, compileClasses, joinClasses, PRIMITIVE_COMPONENTS, collectSlots, pageComponentName, isInstance,
+  sourceOf, isLinkContainer, slotParentFlows, rootSizing, componentRestClasses, layoutOf,
 } from '../core/index.ts';
-import type {
-  ComponentDef, Config, Flows, InstanceNode, LinkNode, Node, Page, PropDef, Style, StyleKind, StyleSource,
-} from '../core/index.ts';
+import type { ComponentDef, Config, Flows, InstanceNode, Node, Page, PropDef } from '../core/index.ts';
 import { attr, declaredNames, element, textChild, valueAttr } from './jsx.ts';
 import type { Scope } from './jsx.ts';
 
@@ -28,50 +26,8 @@ interface Ctx {
 }
 
 // ---------------------------------------------------------------------------
-// Flow resolution for slots
-// ---------------------------------------------------------------------------
-
-/** Flow of the element that holds a component's slot (where slot content lands). */
-export function slotParentFlows(config: Config, componentName: string, slot: string | undefined, seen = new Set<string>()): Flows {
-  const def = config.components?.[componentName];
-  if (!def?.root || seen.has(componentName)) return COLUMN_FLOWS;
-  seen.add(componentName);
-
-  let found: Flows | null = null;
-  const visit = (node: Node, parent: Flows) => {
-    if (found) return;
-    if (node.type === 'slot') {
-      if ((node.name ?? undefined) === slot) found = parent;
-      return;
-    }
-    if (isInstance(node)) {
-      node.children?.forEach(c => visit(c, slotParentFlows(config, node.type, undefined, seen)));
-      for (const [name, list] of Object.entries(node.slots ?? {})) {
-        list.forEach(c => visit(c, slotParentFlows(config, node.type, name, seen)));
-      }
-      return;
-    }
-    if ('children' in node && node.children) {
-      const flows = childFlows({ style: styleOf(node), responsive: (node as { responsive?: object }).responsive as never });
-      node.children.forEach(c => visit(c, flows));
-    }
-  };
-  visit(def.root, COLUMN_FLOWS);
-  return found ?? COLUMN_FLOWS;
-}
-
-// ---------------------------------------------------------------------------
 // Nodes
 // ---------------------------------------------------------------------------
-
-function sourceOf(node: Node, kind: StyleKind, container?: boolean): StyleSource {
-  return {
-    kind,
-    style: styleOf(node),
-    responsive: (node as { responsive?: StyleSource['responsive'] }).responsive,
-    container,
-  };
-}
 
 function commonAttrs(node: Exclude<Node, { type: 'slot' }>, ctx: Ctx): string[] {
   const out: string[] = [];
@@ -181,80 +137,9 @@ export function emitNode(node: Node, indent: number, parent: Flows, ctx: Ctx, ro
   }
 }
 
-export function isLinkContainer(node: LinkNode): boolean {
-  return !!(node.layout || node.responsive?.tablet?.layout || node.responsive?.phone?.layout || node.children?.length);
-}
-
 // ---------------------------------------------------------------------------
 // Instances
 // ---------------------------------------------------------------------------
-
-const SIZING = ['width', 'height', 'minWidth', 'maxWidth', 'minHeight', 'maxHeight', 'hidden'] as const;
-
-function pickSizing(style: Style | undefined): Style {
-  const out: Record<string, unknown> = {};
-  for (const k of SIZING) if (style?.[k] !== undefined) out[k] = style[k];
-  return out as Style;
-}
-
-function omitSizing(style: Style): Style {
-  const out: Record<string, unknown> = { ...style };
-  for (const k of SIZING) delete out[k];
-  return out as Style;
-}
-
-function rootKind(def: ComponentDef): { kind: StyleKind; container: boolean } {
-  const root = def.root!;
-  if (isInstance(root)) return { kind: 'instance', container: false };
-  if (root.type === 'frame') return { kind: 'frame', container: true };
-  if (root.type === 'link') return { kind: 'link', container: isLinkContainer(root) };
-  if (root.type === 'text' || root.type === 'image' || root.type === 'input') return { kind: root.type, container: false };
-  return { kind: 'instance', container: false };
-}
-
-/** The root's display, restored when an instance un-hides at a smaller breakpoint. */
-function rootDisplay(def: ComponentDef): string {
-  const root = def.root!;
-  if (isInstance(root)) return 'block';
-  if (root.type === 'frame' || (root.type === 'link' && isLinkContainer(root))) {
-    return (root as { layout?: { direction?: string } }).layout?.direction === 'grid' ? 'grid' : 'flex';
-  }
-  return 'block';
-}
-
-/** Sizing classes for a component root, given where it's placed. */
-export function rootSizing(config: Config, def: ComponentDef, instance: InstanceNode | null, parent: Flows): string {
-  const root = def.root!;
-  if (isInstance(root)) {
-    // Root is itself an instance: its own sizing is what the inner component receives.
-    const inner = config.components?.[root.type];
-    if (!inner?.root) return '';
-    return rootSizing(config, inner, mergeInstance(root, instance), parent);
-  }
-  const rootResponsive = (root as { responsive?: StyleSource['responsive'] }).responsive;
-  const perBp = BREAKPOINTS.map(bp => {
-    const fromRoot = pickSizing(resolveStyle(styleOf(root), rootResponsive, bp));
-    const fromInstance = instance ? pickSizing(resolveStyle(styleOf(instance), instance.responsive as never, bp)) : {};
-    return mergeStyle(fromRoot, fromInstance);
-  });
-  return compileClasses(
-    { kind: 'instance', container: false, style: perBp[0], responsive: { tablet: perBp[1], phone: perBp[2] }, displayReset: rootDisplay(def) },
-    parent,
-    'sizing',
-  );
-}
-
-function mergeInstance(inner: InstanceNode, outer: InstanceNode | null): InstanceNode {
-  if (!outer) return inner;
-  return {
-    ...inner,
-    ...pickSizing(outer as Style),
-    responsive: {
-      tablet: mergeStyle(pickSizing(inner.responsive?.tablet as Style), pickSizing(outer.responsive?.tablet as Style)),
-      phone: mergeStyle(pickSizing(inner.responsive?.phone as Style), pickSizing(outer.responsive?.phone as Style)),
-    },
-  } as InstanceNode;
-}
 
 /**
  * @param forward when this instance is a component's root, the outer component's
@@ -350,14 +235,8 @@ export function componentSource(config: Config, name: string, def: ComponentDef)
   if (isInstance(root)) {
     body = emitInstance(root, 4, COLUMN_FLOWS, ctx, { sizingDefault });
   } else {
-    const { kind, container } = rootKind(def);
-    const src = sourceOf(root, kind, container);
     // Sizing (including hidden) travels per instance through the `sizing` prop.
-    const unsized = { ...src, style: omitSizing(src.style), responsive: src.responsive && {
-      tablet: src.responsive.tablet && omitSizing(src.responsive.tablet),
-      phone: src.responsive.phone && omitSizing(src.responsive.phone),
-    } };
-    const rest = joinClasses(compileClasses(unsized, COLUMN_FLOWS, 'rest'), (root as { className?: string }).className);
+    const rest = componentRestClasses(def);
     body = emitNode(root, 4, COLUMN_FLOWS, ctx, { classExpr: `cx(${JSON.stringify(rest)}, sizing, className)` });
   }
 
@@ -411,11 +290,6 @@ ${body}
 // ---------------------------------------------------------------------------
 // App
 // ---------------------------------------------------------------------------
-
-export function layoutOf(config: Config, page: Page): string | null {
-  if (page.layout === false) return null;
-  return page.layout ?? config.layout ?? null;
-}
 
 export function appSource(config: Config, routing: boolean): string {
   const pages = config.pages.map(p => ({ page: p, name: pageComponentName(p.name), layout: layoutOf(config, p) }));

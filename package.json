@@ -41,7 +41,8 @@
     ".": "./src/generator/index.ts",
     "./core": "./src/core/index.ts",
     "./core/primitives": "./src/core/primitives/index.ts",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./examples/*": "./examples/*"
   },
   "files": [
     "bin",
