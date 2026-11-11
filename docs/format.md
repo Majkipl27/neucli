@@ -133,9 +133,18 @@ components:
   slots: { actions: [ ... ] }
 ```
 
-An instance can set props, sizing (`width`, `height`, min/max, and `hidden` per breakpoint) and `className`. Anything else comes from the component; to restyle one copy, detach it in the editor, which turns it into plain nodes. Sizing is compiled where the instance is placed and passed to the component's root as the `sizing` prop, replacing the root's own sizing.
+An instance can set props, sizing (`width`, `height`, min/max, `hidden`), `fill`, `color`, `border` and `className`, at the base and per breakpoint under `responsive`. This works like overrides on a Figma instance: the copy stays linked to its component, and only the keys you set differ.
 
-`className` on an instance is appended to the root's classes. It's an escape hatch: when it sets the same property as the root (two background colors), which one wins isn't defined.
+```yaml
+- type: Card
+  props: { title: Pro }
+  fill: { gradient: to-br, from: violet-600, to: indigo-700 }
+  border: { color: violet-400 }   # keeps the Card's border width and sides
+```
+
+The instance's values are merged over the component root's (`border` merges key by key; a new `fill` replaces the old one, solid or gradient). The result is compiled where the instance is placed and passed to the root as the `overrides` prop, which replaces the root's defaults for those keys. That way two background classes never compete. Anything else (padding, radius, font...) comes from the component; to change it on one copy, detach it in the editor, which turns it into plain nodes.
+
+`className` on an instance is appended to the root's classes. Use it for what the structured keys don't cover (hover states, shadows). When it sets the same property as the root, which one wins isn't defined.
 
 ## Layouts
 

@@ -15,7 +15,7 @@ It's a portfolio piece with no deadline. It should be finished and polished, not
 | Building blocks | Figma-style primitives: `frame` (auto layout box), `text`, `image`, `link`, `slot`, plus component instances. `hero`, `navbar`, `card` etc. stop being hard-coded types and become editable presets. |
 | Styling | Structured values (`layout`, `fill`, `radius`, `text`...) are the source of truth. `className` stays as an escape hatch for anything the panel doesn't cover. |
 | Responsive | Desktop is the base. Any node can override values for `tablet` / `phone` under `responsive:`. |
-| Components | Components declare their props. An instance fills them in. You can also **detach** an instance (Figma's "detach instance"): it turns into a plain copy you edit freely. |
+| Components | Components declare their props. An instance fills them in. Like Figma, a copy can override `fill`, `color`, `border` and sizing while staying linked; the copy's value wins. You can also **detach** an instance (Figma's "detach instance"): it turns into a plain copy you edit freely. |
 | Layouts (AppShell) | A layout is a component with a `slot` where the page goes. Pages pick one with `layout:`. Navbar/footer, sidebar and dashboard shells ship as presets. |
 | Interactivity | Generic state + actions. A node can hold `state`, children trigger actions (`on: { click: toggle open }`), and `visibleWhen` shows/hides. Accordion, Modal, Carousel, Tabs are presets built on this. |
 | Generated code | Safe zones. neucli owns `src/neucli/` and overwrites it every run. You own `src/custom/`, which neucli never touches. Custom `.tsx` plugs in from YAML via `file:`. Inline `logic:` in YAML stays supported. Hand-editing a generated file gets a warning instead of a silent overwrite. |

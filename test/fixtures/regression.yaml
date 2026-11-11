@@ -188,6 +188,11 @@ pages:
           - type: Card
             width: hug
             props: { title: Three, count: 1 }
+          - type: Card
+            fill: slate-900
+            color: white
+            border: { color: violet-500 }
+            props: { title: Four }
       - type: frame
         tag: form
         layout: { gap: 12, padding: 24 }

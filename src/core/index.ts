@@ -17,6 +17,6 @@ export { parseColor } from './style/color.ts';
 export { themeCss, googleFontsUrl } from './theme.ts';
 export { PRIMITIVE_COMPONENTS, RESERVED_NAMES, RESERVED_PROPS, pageComponentName } from './names.ts';
 export {
-  nodeClasses, componentRestClasses, rootSizing, slotParentFlows, pageParentFlows, layoutOf,
-  sourceOf, isLinkContainer, rootKind, pickSizing, omitSizing,
+  nodeClasses, componentRestClasses, rootOverrides, slotParentFlows, pageParentFlows, layoutOf,
+  sourceOf, isLinkContainer, rootKind, pickOverridable, omitOverridable,
 } from './render.ts';

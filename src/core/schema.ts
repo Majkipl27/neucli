@@ -117,7 +117,7 @@ const COMMON_STYLE = [
   'width', 'height', 'minWidth', 'maxWidth', 'minHeight', 'maxHeight', 'fill', 'color', 'font', 'radius',
   'border', 'shadow', 'opacity', 'clip', 'hidden',
 ] as const;
-const SIZING_STYLE = ['width', 'height', 'minWidth', 'maxWidth', 'minHeight', 'maxHeight', 'hidden'] as const;
+const INSTANCE_STYLE = ['width', 'height', 'minWidth', 'maxWidth', 'minHeight', 'maxHeight', 'hidden', 'fill', 'color', 'border'] as const;
 
 function responsive<T extends z.ZodRawShape>(shape: T) {
   const override = z.strictObject(shape);
@@ -218,11 +218,11 @@ const SlotSchema = z.strictObject({
 const InstanceSchema = z.strictObject({
   type: z.string().regex(COMPONENT_NAME),
   ...base,
-  ...pickStyle(SIZING_STYLE),
+  ...pickStyle(INSTANCE_STYLE),
   props: z.record(z.string().regex(IDENTIFIER, 'prop names must be identifiers'), AttrValue).optional(),
   children: Children.optional(),
   slots: z.record(z.string().regex(IDENTIFIER), Children).optional(),
-  responsive: responsive(pickStyle(SIZING_STYLE)),
+  responsive: responsive(pickStyle(INSTANCE_STYLE)),
 });
 
 const PRIMITIVE_SCHEMAS: Record<string, z.ZodType> = {
@@ -278,7 +278,7 @@ export const NodeSchema: z.ZodType<Node> = z.lazy(() =>
         if (schema === InstanceSchema && issue.code === 'unrecognized_keys' && issue.path.length === 0) {
           const keys = (issue as { keys?: string[] }).keys ?? [];
           if (keys.some(k => k in styleShape)) {
-            message += ` — an instance takes props, sizing (width, height, min/max, responsive hidden) and className; to restyle it, change the component or detach the instance`;
+            message += ` — an instance takes props, sizing (width, height, min/max, hidden), fill, color, border and className; for anything else, change the component or detach the instance`;
           }
         }
         ctx.addIssue({ code: 'custom', message, path: issue.path as (string | number)[] });

@@ -52,17 +52,18 @@ export function isLinkContainer(node: LinkNode): boolean {
   return !!(node.layout || node.responsive?.tablet?.layout || node.responsive?.phone?.layout || node.children?.length);
 }
 
-const SIZING = ['width', 'height', 'minWidth', 'maxWidth', 'minHeight', 'maxHeight', 'hidden'] as const;
+/** Style keys an instance may set on its component's root. The instance's value wins. */
+export const OVERRIDABLE = ['width', 'height', 'minWidth', 'maxWidth', 'minHeight', 'maxHeight', 'hidden', 'fill', 'color', 'border'] as const;
 
-export function pickSizing(style: Style | undefined): Style {
+export function pickOverridable(style: Style | undefined): Style {
   const out: Record<string, unknown> = {};
-  for (const k of SIZING) if (style?.[k] !== undefined) out[k] = style[k];
+  for (const k of OVERRIDABLE) if (style?.[k] !== undefined) out[k] = style[k];
   return out as Style;
 }
 
-export function omitSizing(style: Style): Style {
+export function omitOverridable(style: Style): Style {
   const out: Record<string, unknown> = { ...style };
-  for (const k of SIZING) delete out[k];
+  for (const k of OVERRIDABLE) delete out[k];
   return out as Style;
 }
 
@@ -85,25 +86,28 @@ function rootDisplay(def: ComponentDef): string {
   return 'block';
 }
 
-/** Sizing classes for a component root, given where it's placed. */
-export function rootSizing(config: Config, def: ComponentDef, instance: InstanceNode | null, parent: Flows): string {
+/**
+ * Overridable classes (sizing, fill, color, border) for a component root, given
+ * where it's placed. The instance's values are merged over the root's, so they win.
+ */
+export function rootOverrides(config: Config, def: ComponentDef, instance: InstanceNode | null, parent: Flows): string {
   const root = def.root!;
   if (isInstance(root)) {
-    // Root is itself an instance: its own sizing is what the inner component receives.
+    // Root is itself an instance: its own overrides are what the inner component receives.
     const inner = config.components?.[root.type];
     if (!inner?.root) return '';
-    return rootSizing(config, inner, mergeInstance(root, instance), parent);
+    return rootOverrides(config, inner, mergeInstance(root, instance), parent);
   }
   const rootResponsive = (root as { responsive?: StyleSource['responsive'] }).responsive;
   const perBp = BREAKPOINTS.map(bp => {
-    const fromRoot = pickSizing(resolveStyle(styleOf(root), rootResponsive, bp));
-    const fromInstance = instance ? pickSizing(resolveStyle(styleOf(instance), instance.responsive as never, bp)) : {};
+    const fromRoot = pickOverridable(resolveStyle(styleOf(root), rootResponsive, bp));
+    const fromInstance = instance ? pickOverridable(resolveStyle(styleOf(instance), instance.responsive as never, bp)) : {};
     return mergeStyle(fromRoot, fromInstance);
   });
   return compileClasses(
     { kind: 'instance', container: false, style: perBp[0], responsive: { tablet: perBp[1], phone: perBp[2] }, displayReset: rootDisplay(def) },
     parent,
-    'sizing',
+    'overrides',
   );
 }
 
@@ -111,10 +115,10 @@ function mergeInstance(inner: InstanceNode, outer: InstanceNode | null): Instanc
   if (!outer) return inner;
   return {
     ...inner,
-    ...pickSizing(outer as Style),
+    ...mergeStyle(pickOverridable(inner as Style), pickOverridable(outer as Style)),
     responsive: {
-      tablet: mergeStyle(pickSizing(inner.responsive?.tablet as Style), pickSizing(outer.responsive?.tablet as Style)),
-      phone: mergeStyle(pickSizing(inner.responsive?.phone as Style), pickSizing(outer.responsive?.phone as Style)),
+      tablet: mergeStyle(pickOverridable(inner.responsive?.tablet as Style), pickOverridable(outer.responsive?.tablet as Style)),
+      phone: mergeStyle(pickOverridable(inner.responsive?.phone as Style), pickOverridable(outer.responsive?.phone as Style)),
     },
   } as InstanceNode;
 }
@@ -132,17 +136,18 @@ export function nodeClasses(node: Exclude<Node, { type: 'slot' }>, parent: Flows
 }
 
 /**
- * A component root's own classes minus sizing. Sizing comes per instance via
- * `rootSizing`; the generated component joins them as `cx(rest, sizing, className)`.
+ * A component root's own classes minus the overridable ones, which come per
+ * instance via `rootOverrides`; the generated component joins them as
+ * `cx(rest, overrides, className)`.
  */
 export function componentRestClasses(def: ComponentDef): string {
   const root = def.root!;
   if (isInstance(root)) return '';
   const { kind, container } = rootKind(def);
   const src = sourceOf(root, kind, container);
-  const unsized = { ...src, style: omitSizing(src.style), responsive: src.responsive && {
-    tablet: src.responsive.tablet && omitSizing(src.responsive.tablet),
-    phone: src.responsive.phone && omitSizing(src.responsive.phone),
+  const unsized = { ...src, style: omitOverridable(src.style), responsive: src.responsive && {
+    tablet: src.responsive.tablet && omitOverridable(src.responsive.tablet),
+    phone: src.responsive.phone && omitOverridable(src.responsive.phone),
   } };
   return joinClasses(compileClasses(unsized, COLUMN_FLOWS, 'rest'), (root as { className?: string }).className);
 }

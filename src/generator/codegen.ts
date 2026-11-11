@@ -8,7 +8,7 @@
 
 import {
   COLUMN_FLOWS, childFlows, compileClasses, joinClasses, PRIMITIVE_COMPONENTS, collectSlots, pageComponentName, isInstance,
-  sourceOf, isLinkContainer, slotParentFlows, rootSizing, componentRestClasses, layoutOf,
+  sourceOf, isLinkContainer, slotParentFlows, rootOverrides, componentRestClasses, layoutOf,
 } from '../core/index.ts';
 import type { ComponentDef, Config, Flows, InstanceNode, Node, Page, PropDef } from '../core/index.ts';
 import { attr, declaredNames, element, textChild, valueAttr } from './jsx.ts';
@@ -143,9 +143,9 @@ export function emitNode(node: Node, indent: number, parent: Flows, ctx: Ctx, ro
 
 /**
  * @param forward when this instance is a component's root, the outer component's
- *   `sizing` / `className` / rest props are forwarded to it.
+ *   `overrides` / `className` / rest props are forwarded to it.
  */
-function emitInstance(node: InstanceNode, indent: number, parent: Flows, ctx: Ctx, forward: { sizingDefault: string } | null): string {
+function emitInstance(node: InstanceNode, indent: number, parent: Flows, ctx: Ctx, forward: { overridesDefault: string } | null): string {
   const def = ctx.config.components![node.type];
   ctx.components.add(node.type);
   const declared = (def.props ?? {}) as Record<string, PropDef>;
@@ -166,11 +166,11 @@ function emitInstance(node: InstanceNode, indent: number, parent: Flows, ctx: Ct
   }
 
   if (forward) {
-    attrs.push(`sizing={sizing ?? ${JSON.stringify(forward.sizingDefault)}}`, 'className={className}', '{...rest}');
+    attrs.push(`overrides={overrides ?? ${JSON.stringify(forward.overridesDefault)}}`, 'className={className}', '{...rest}');
   } else {
-    const sizing = rootSizing(ctx.config, def, node, parent);
-    const fallback = rootSizing(ctx.config, def, null, COLUMN_FLOWS);
-    if (sizing !== fallback) attrs.push(`sizing="${sizing}"`);
+    const overrides = rootOverrides(ctx.config, def, node, parent);
+    const fallback = rootOverrides(ctx.config, def, null, COLUMN_FLOWS);
+    if (overrides !== fallback) attrs.push(`overrides="${overrides}"`);
     attrs.push(...commonAttrs(node, ctx));
     if (node.className) attrs.push(`className="${node.className}"`);
     attrs.push(...extraAttrs(node, ctx));
@@ -229,22 +229,22 @@ export function componentSource(config: Config, name: string, def: ComponentDef)
   if (slots.hasDefault) scopeNames.add('children');
   const ctx: Ctx = { config, scope: scopeNames, primitives: new Set(), components: new Set(), inComponent: true };
   const root = def.root!;
-  const sizingDefault = rootSizing(config, def, null, COLUMN_FLOWS);
+  const overridesDefault = rootOverrides(config, def, null, COLUMN_FLOWS);
 
   let body: string;
   if (isInstance(root)) {
-    body = emitInstance(root, 4, COLUMN_FLOWS, ctx, { sizingDefault });
+    body = emitInstance(root, 4, COLUMN_FLOWS, ctx, { overridesDefault });
   } else {
-    // Sizing (including hidden) travels per instance through the `sizing` prop.
+    // Overridable styles (sizing, hidden, fill, color, border) travel per instance through the `overrides` prop.
     const rest = componentRestClasses(def);
-    body = emitNode(root, 4, COLUMN_FLOWS, ctx, { classExpr: `cx(${JSON.stringify(rest)}, sizing, className)` });
+    body = emitNode(root, 4, COLUMN_FLOWS, ctx, { classExpr: `cx(${JSON.stringify(rest)}, overrides, className)` });
   }
 
   const propLines = Object.entries(props).map(([p, d]) => `  ${p}?: ${TS_TYPE[d.type]};`);
   if (slots.hasDefault) propLines.push('  children?: ReactNode;');
   for (const s of slots.named) propLines.push(`  ${s}?: ReactNode;`);
   propLines.push('  /** Sizing classes from where the instance is placed; replaces the root\'s defaults. */');
-  propLines.push('  sizing?: string;');
+  propLines.push('  overrides?: string;');
 
   // Declared props and slots win over same-named HTML attributes (title, color, ...).
   const omit = [...Object.keys(props), ...slots.named];
@@ -256,7 +256,7 @@ export function componentSource(config: Config, name: string, def: ComponentDef)
     ...Object.entries(props).map(([p, d]) => (d.default !== undefined ? `${p} = ${JSON.stringify(d.default)}` : p)),
     ...(slots.hasDefault ? ['children'] : []),
     ...slots.named,
-    isInstance(root) || !sizingDefault ? 'sizing' : `sizing = ${JSON.stringify(sizingDefault)}`,
+    isInstance(root) || !overridesDefault ? 'overrides' : `overrides = ${JSON.stringify(overridesDefault)}`,
     'className',
     '...rest',
   ];

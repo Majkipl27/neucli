@@ -108,16 +108,21 @@ test('regression: braces are literal outside components, interpolated inside', a
   assert.match(home, /useSEO\(\{ title: "Quotes \\" and `backticks` and \$\{injection\}"/);
 });
 
-test('regression: instances get sizing from where they are placed', async () => {
+test('regression: instances get sizing and style overrides from where they are placed', async () => {
   const { out } = await generate('test/fixtures/regression.yaml');
   const home = read(out, 'src/pages/Home.tsx');
-  assert.ok(home.includes('<Badge label="2026" sizing="max-md:hidden" />'), 'hidden on phone only');
-  assert.ok(home.includes('sizing="w-full"'), 'width: fill inside a grid');
-  assert.ok(home.includes('<Card title="Three" count={1} sizing="w-fit" />'), 'instance override wins');
+  assert.ok(home.includes('<Badge label="2026" overrides="bg-brand/10 text-brand max-md:hidden" />'), 'hidden on phone only');
+  assert.ok(home.includes('overrides="w-full bg-white border border-slate-200"'), 'width: fill inside a grid');
+  assert.ok(home.includes('<Card title="Three" count={1} overrides="w-fit bg-white border border-slate-200" />'), 'instance override wins');
   assert.ok(home.includes('<FeaturedCard title="Two" />'), 'same as the default: nothing passed');
+  assert.ok(
+    home.includes('<Card title="Four" overrides="w-full bg-slate-900 text-white border border-violet-500" />'),
+    'per-copy fill and color win; border keeps its width and only changes color',
+  );
   const card = read(out, 'src/components/Card.tsx');
-  assert.ok(card.includes('sizing = "self-stretch"'), 'default sizing for a column parent');
-  assert.ok(read(out, 'src/components/FeaturedCard.tsx').includes('sizing={sizing ?? "w-80"}'));
+  assert.ok(card.includes('overrides = "self-stretch bg-white border border-slate-200"'), 'defaults: sizing for a column parent, plus fill and border');
+  assert.ok(card.includes('cx("flex flex-col gap-3 p-6 rounded-xl", overrides, className)'), 'overridable styles are not repeated in the root classes');
+  assert.ok(read(out, 'src/components/FeaturedCard.tsx').includes('overrides={overrides ?? "w-80 bg-white border border-slate-200"}'));
 });
 
 test('regression: layouts wrap routes, pages can opt out, anchors scroll', async () => {

@@ -258,10 +258,10 @@ export interface SlotNode {
   name?: string;
 }
 
-/** Sizing keys an instance may override; everything else comes from the component. */
-export type SizingStyle = Pick<Style, 'width' | 'height' | 'minWidth' | 'maxWidth' | 'minHeight' | 'maxHeight' | 'hidden'>;
+/** Style keys an instance may override (sizing, fill, color, border); everything else comes from the component. */
+export type InstanceStyle = Pick<Style, 'width' | 'height' | 'minWidth' | 'maxWidth' | 'minHeight' | 'maxHeight' | 'hidden' | 'fill' | 'color' | 'border'>;
 
-export interface InstanceNode extends NodeBase, SizingStyle {
+export interface InstanceNode extends NodeBase, InstanceStyle {
   /** A component name from `components:` (PascalCase). */
   type: string;
   props?: Record<string, string | number | boolean>;
@@ -269,7 +269,7 @@ export interface InstanceNode extends NodeBase, SizingStyle {
   children?: Node[];
   /** Content for named slots. */
   slots?: Record<string, Node[]>;
-  responsive?: Responsive<SizingStyle>;
+  responsive?: Responsive<InstanceStyle>;
 }
 
 export type PrimitiveNode = FrameNode | TextNode | ImageNode | LinkNode | InputNode | SlotNode;

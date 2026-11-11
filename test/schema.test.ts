@@ -58,9 +58,15 @@ test('unknown keys are reported with their path', () => {
     /pages\[0\]\.sections\[0\]\.children\[0\]: Unrecognized key: "colour"/);
 });
 
-test('styling an instance explains props / detach', () => {
-  assertError(config({ components: { Box: { root: { type: 'frame' } } } }, [{ type: 'Box', fill: 'white' }]),
-    /Unrecognized key: "fill" — an instance takes props.*detach/);
+test('instances may override fill, color and border', () => {
+  const result = validate(config({ components: { Box: { root: { type: 'frame' } } } },
+    [{ type: 'Box', fill: 'white', color: 'slate-900', border: { color: 'violet-500' }, responsive: { phone: { fill: 'black' } } }]));
+  assert.deepEqual(result.errors, []);
+});
+
+test('styling an instance beyond the overridable keys explains detach', () => {
+  assertError(config({ components: { Box: { root: { type: 'frame' } } } }, [{ type: 'Box', radius: 12 }]),
+    /Unrecognized key: "radius" — an instance takes props.*fill, color, border.*detach/);
 });
 
 test('bad values', () => {

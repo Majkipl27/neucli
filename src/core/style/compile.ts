@@ -35,7 +35,7 @@ export interface StyleSource {
   displayReset?: string;
 }
 
-export type Part = 'all' | 'sizing' | 'rest';
+export type Part = 'all' | 'overrides' | 'rest';
 
 export const STYLE_KEYS = [
   'layout', 'width', 'height', 'minWidth', 'maxWidth', 'minHeight', 'maxHeight', 'fill', 'color',
@@ -109,8 +109,12 @@ interface Entry {
 type Groups = Map<string, Entry>;
 
 /** Groups an instance controls. `display` belongs here only for instances (where it comes from `hidden`). */
-const SIZING_GROUPS = new Set([
+/** Groups an instance can override: sizing, plus fill, text color and border. */
+const INSTANCE_GROUPS = new Set([
   'width', 'height', 'grow', 'basis', 'shrink', 'self', 'min-w', 'min-h', 'max-w', 'max-h',
+  'bg-color', 'bg-image', 'from', 'via', 'to',
+  'text-color',
+  'bw.t', 'bw.r', 'bw.b', 'bw.l', 'border-color', 'border-style',
 ]);
 
 /** Class that restores the initial value; '' means "nothing to restore". */
@@ -431,8 +435,8 @@ function filterPart(groups: Groups, part: Part, kind: StyleKind): Groups {
   if (part === 'all') return groups;
   const out: Groups = new Map();
   for (const [k, v] of groups) {
-    const sizing = SIZING_GROUPS.has(k) || (k === 'display' && kind === 'instance');
-    if (sizing === (part === 'sizing')) out.set(k, v);
+    const overridable = INSTANCE_GROUPS.has(k) || (k === 'display' && kind === 'instance');
+    if (overridable === (part === 'overrides')) out.set(k, v);
   }
   return out;
 }
@@ -450,7 +454,7 @@ function dropInitial(groups: Groups): Groups {
 /**
  * Compile a node's styles into a class string.
  * @param parent the parent's flow at each breakpoint (decides what `fill` means)
- * @param part 'sizing' or 'rest' to split a component root between the component file and its instances
+ * @param part 'overrides' or 'rest' to split a component root between the component file and its instances
  */
 export function compileClasses(src: StyleSource, parent: Flows = COLUMN_FLOWS, part: Part = 'all'): string {
   const perBp = BREAKPOINTS.map(bp => {

@@ -38,10 +38,10 @@ export async function invalidClasses(classes: string[]): Promise<string[]> {
   return unique.filter((_, i) => !css[i]);
 }
 
-/** Pull class strings out of generated TSX: className="...", cx("...", ...), sizing="...", sizing = "...". */
+/** Pull class strings out of generated TSX: className="...", cx("...", ...), overrides="...", overrides = "...". */
 export function classesInSource(source: string): string[] {
   const out: string[] = [];
-  const patterns = [/className="([^"]*)"/g, /sizing="([^"]*)"/g, /sizing = "([^"]*)"/g, /sizing \?\? "([^"]*)"/g, /cx\("([^"]*)"/g];
+  const patterns = [/className="([^"]*)"/g, /overrides="([^"]*)"/g, /overrides = "([^"]*)"/g, /overrides \?\? "([^"]*)"/g, /cx\("([^"]*)"/g];
   for (const re of patterns) for (const m of source.matchAll(re)) out.push(...m[1].split(/\s+/));
   return out.filter(Boolean);
 }

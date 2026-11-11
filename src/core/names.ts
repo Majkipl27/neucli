@@ -15,7 +15,7 @@ export const RESERVED_NAMES = new Set([
 ]);
 
 /** Props every generated component already has. */
-export const RESERVED_PROPS = new Set(['children', 'className', 'sizing', 'id', 'key', 'ref', 'tag', 'style']);
+export const RESERVED_PROPS = new Set(['children', 'className', 'overrides', 'id', 'key', 'ref', 'tag', 'style']);
 
 /** Page name -> component/file name: "About us!" -> "AboutUs". */
 export function pageComponentName(name: string): string {

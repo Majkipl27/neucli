@@ -99,10 +99,10 @@ test('typography, color, radius, border, shadow, opacity', () => {
   assert.equal(compileClasses(text({ fill: '#0f172a' })), 'bg-[#0f172a]');
 });
 
-test('sizing and rest split a component root between instance and component', () => {
-  const src = frame({ width: 'fill', layout: { gap: 8 }, fill: 'white' });
-  assert.equal(compileClasses(src, ROW, 'sizing'), 'grow basis-0 min-w-0');
-  assert.equal(compileClasses(src, ROW, 'rest'), 'flex flex-col gap-2 bg-white');
+test('overridable styles and rest split a component root between instance and component', () => {
+  const src = frame({ width: 'fill', layout: { gap: 8 }, fill: 'white', radius: 12 });
+  assert.equal(compileClasses(src, ROW, 'overrides'), 'grow basis-0 min-w-0 bg-white');
+  assert.equal(compileClasses(src, ROW, 'rest'), 'flex flex-col gap-2 rounded-xl');
 });
 
 test('colors: tokens, palette, hex, opacity', () => {
