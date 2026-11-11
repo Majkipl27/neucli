@@ -83,14 +83,14 @@ Exact key names were settled in Phase 1; the reference is [docs/format.md](docs/
 
 The order puts the canvas feel first, as agreed (direct manipulation → panel → components). Before any of that, the canvas has to show the truth. Right now it renders Tailwind classes only if they happen to appear in the editor's own source, so it doesn't match what the CLI builds.
 
-### Phase 0 — CLI hardening ✅ (uncommitted)
+### Phase 0 — CLI hardening ✅
 - [x] Text with `{ } < > &` no longer breaks generated TSX
 - [x] Types used only inside custom components get generated
 - [x] Custom components respect `tag:`
 - [x] Validator catches component cycles, page name/path collisions, reserved names
 - [x] `npm test` smoke test: generates the examples and typechecks the output
 
-### Phase 1 — New format and `neucli/core` (CLI repo) ✅ (uncommitted)
+### Phase 1 — New format and `neucli/core` (CLI repo) ✅
 - [x] zod schema for the new format, used by both the CLI and the editor
 - [x] Style compiler: structured values + responsive overrides → Tailwind classes (on-scale values snap to the scale, e.g. gap 20 → `gap-5`; off-scale values use arbitrary classes)
 - [x] Primitive React components (`Frame`, `Text`, `Image`, `Link`), one source used both in generated projects and on the editor canvas
@@ -109,7 +109,7 @@ Deviations and additions:
 - **Old pages wrapped content in `<main className="flex-grow">`**; now the layout component decides everything, including the `<main>`.
 - **`removeStaleFiles` still deletes anything in the generated folders it didn't write** (Phase 8 fixes this with a manifest).
 
-### Phase 2 — Truthful canvas (editor)
+### Phase 2 — Truthful canvas (editor) ✅
 - [x] Editor document model switched to `neucli/core`'s schema
 - [x] Canvas renders inside an iframe with Tailwind compiled at runtime from the config's theme
 - [x] Selection and hover drawn as an overlay above the iframe, never as classes on the element (no more ring/shadow clashes, no "+ Add inside" layout jump)
@@ -127,7 +127,7 @@ Deviations and additions:
 - **Inserting** lives in the toolbar: the five primitives plus a Component menu. A new node goes inside the selection if it can hold children, after it otherwise, or at the end of the page.
 - **The editor bundles the CLI repo's examples** (`neucli/examples/*` export) and opens on Nova. Open ▸ switches between Nova, the landing page and a blank site.
 
-### Phase 3 — Direct manipulation
+### Phase 3 — Direct manipulation ✅
 - [x] Selection box with handles; hover outline; parent/child selection with Enter / Shift+Enter, Esc to deselect
 - [x] Drag to reorder inside auto layout, with a drop indicator; drag between frames
 - [x] Resize handles that set width/height as fixed, or switch to hug / fill (Figma's sizing modes)
@@ -144,7 +144,7 @@ How it behaves, and where it differs from Figma:
 - **Multi-select**: Shift+click on the canvas or in the layers panel; delete, duplicate (Cmd+D) and drag work on all of them. Cmd+G wraps selected siblings in a frame that keeps the parent's direction and gap, so nothing moves; Cmd+Shift+G unwraps a frame (its own styles are dropped). Copy/paste still uses the primary selection only.
 - Dev builds expose the stores as `window.__neucli` for poking at state from the console.
 
-### Phase 4 — Auto layout panel
+### Phase 4 — Auto layout panel ✅
 - [x] Right panel reads and writes structured values exactly: direction, gap, padding, alignment, sizing, fill (theme tokens or hex), radius, border, shadow, typography
 - [x] Breakpoint switcher: edits go to the base or to the `tablet`/`phone` override, and overridden values are marked
 - [x] Theme editor: colors and fonts
@@ -163,7 +163,7 @@ Checked in the editor on both examples with real input, then exported, generated
 - Removing a fill or border while on tablet/phone drops that breakpoint's override (back to the desktop value) rather than clearing it there; to clear it only on phone, set it to `transparent`.
 - Several border sides (`sides: [top, bottom]`) show read-only in the panel; edit them in the YAML.
 
-### Phase 5 — Components, instances, layouts
+### Phase 5 — Components, instances, layouts ✅
 - [x] "Create component" from a selection; declared props; instances
 - [x] Editing the main component updates every instance
 - [x] Detach instance (landed in Phase 4)
@@ -183,7 +183,7 @@ Checked in the editor with real input (create component with text props, prop re
 - Layer tree drag (left sidebar) still can't target an empty named slot; drag on the canvas instead.
 - Bound text inside a nested instance on a main component isn't editable in place (as on pages, only an instance's own `{textProp}` text is).
 
-### Phase 6 — Interactions
+### Phase 6 — Interactions ✅
 - [x] `state`, `on`, `visibleWhen` in the schema; generated as `useState` + handlers
 - [x] Live on the canvas in a "preview" mode
 - [x] Presets: Accordion, Modal, Carousel, Tabs
@@ -215,7 +215,7 @@ Notes and deviations:
 - Off-screen frames keep their last render until they come back; a frame that has never been on screen is a blank sheet of the right size.
 - Hover highlights only show on the active frame.
 
-### Phase 8 — Code safe zones (CLI; can run in parallel with Phases 3–7)
+### Phase 8 — Code safe zones (CLI) ✅
 - [x] Generated files move to `src/neucli/`; `src/custom/` is never touched
 - [x] Manifest of what neucli wrote, with hashes. Only files in the manifest get cleaned up (today, stale-file cleanup deletes *any* file it didn't generate, including your own)
 - [x] Warn when a generated file was hand-edited
