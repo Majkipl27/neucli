@@ -1,11 +1,11 @@
-import type { Config, Node } from './types.ts';
+import type { Config, Node, ComponentDef } from './types.ts';
 
 const BUILT_IN_COMPONENTS = [
   'navbar', 'hero', 'section', 'container', 'grid',
   'card', 'text', 'button', 'image', 'footer'
 ];
 
-function toPascalCase(str: string): string {
+export function toPascalCase(str: string): string {
   return str
     .split(/[-_\s]+/)
     .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
@@ -39,12 +39,40 @@ export function resolveComponentTemplate(type: string): ResolvedComponent {
   };
 }
 
+/**
+ * Find the `components:` entry for a node type. Keys match case-insensitively,
+ * ignoring - _ and spaces, so `promo-box`, `promo_box` and `PromoBox` are the same component.
+ * Built-in types never resolve to a custom definition.
+ */
+export function componentKey(type: string): string {
+  return type.toLowerCase().replace(/[-_\s]+/g, '');
+}
+
+export function findComponentDef(config: Config, type: string): ComponentDef | undefined {
+  if (!config.components) return undefined;
+  if (BUILT_IN_COMPONENTS.includes(type.toLowerCase())) return undefined;
+  const target = componentKey(type);
+  for (const [key, def] of Object.entries(config.components)) {
+    if (componentKey(key) === target) return def;
+  }
+  return undefined;
+}
+
 export function collectComponentTypes(config: Config): string[] {
-  const types = new Set<string>();
+  const types = new Map<string, string>(); // componentName -> first-seen type
+  const expanded = new Set<string>();
 
   function walk(node: Node) {
-    if (node?.type) types.add(node.type);
-    if (node?.children) node.children.forEach(walk);
+    if (!node?.type) return;
+    const { componentName } = resolveComponentTemplate(node.type);
+    if (!types.has(componentName)) types.set(componentName, node.type);
+    node.children?.forEach(walk);
+
+    // Types used only inside a custom component's own children still need files.
+    if (!expanded.has(componentName)) {
+      expanded.add(componentName);
+      findComponentDef(config, node.type)?.children?.forEach(walk);
+    }
   }
 
   if (config.globals?.navbar) walk(config.globals.navbar);
@@ -53,7 +81,7 @@ export function collectComponentTypes(config: Config): string[] {
     page.sections?.forEach(walk);
   });
 
-  return [...types];
+  return [...types.values()];
 }
 
 export function getBuiltInComponents(): string[] {

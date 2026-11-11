@@ -8,7 +8,9 @@
   },
   "main": "src/generator/index.ts",
   "scripts": {
-    "generate": "node bin/cli.ts generate"
+    "generate": "node bin/cli.ts generate",
+    "test": "node --test \"test/**/*.test.ts\"",
+    "typecheck": "tsc -p ."
   },
   "keywords": [
     "react",

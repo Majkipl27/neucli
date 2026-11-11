@@ -1,0 +1,9 @@
+# Must be rejected by the validator with every error listed below.
+meta: { name: Invalid }
+components:
+  a-box: { children: [ { type: b-box } ] }
+  b-box: { children: [ { type: text, text: x }, { type: a-box } ] }
+pages:
+  - { path: /, name: Home, sections: [ { type: a-box } ] }
+  - { path: /, name: "home!", sections: [] }
+  - { path: /x, name: Text, sections: [ { type: text } ] }

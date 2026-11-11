@@ -68,4 +68,4 @@ pages:
 
 ## License
 
-Open sourced under the GNU GPL License.
+MIT. See `LICENSE`.

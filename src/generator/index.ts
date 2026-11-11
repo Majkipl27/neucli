@@ -5,7 +5,7 @@ import { parseConfig } from './parser.ts';
 import { validateConfig } from './validator.ts';
 import { scaffoldProject } from './scaffolder.ts';
 import { renderTemplate } from './renderer.ts';
-import { resolveComponentTemplate, collectComponentTypes } from './componentResolver.ts';
+import { resolveComponentTemplate, collectComponentTypes, findComponentDef } from './componentResolver.ts';
 import { buildPageSource, sanitizeName, buildJSX } from './pageBuilder.ts';
 import { DiffReport, writeIfChanged, removeStaleFiles } from './differ.ts';
 import { analyzeFeatures } from './features.ts';
@@ -59,14 +59,15 @@ export async function runPipeline(
     let customLogic: string | null = null;
     let customImports: string[] | null = null;
     let innerJSX: string | null = null;
-    if (!isBuiltIn && config.components) {
-      // Allow overriding by pascal case or original type
-      const cmpDef = config.components[componentName] || config.components[originalType as string];
+    let defaultTag = originalType;
+    if (!isBuiltIn) {
+      const cmpDef = findComponentDef(config, type);
       if (cmpDef) {
         customLogic = cmpDef.logic || null;
         customImports = cmpDef.imports || null;
+        if (cmpDef.tag) defaultTag = cmpDef.tag;
         if (cmpDef.children && cmpDef.children.length > 0) {
-          innerJSX = cmpDef.children.map(c => buildJSX(c, 6)).filter(Boolean).join('\n');
+          innerJSX = cmpDef.children.map(c => buildJSX(c, 6, true)).filter(Boolean).join('\n');
           
           const deps = new Set<string>();
           const walkDeps = (n: Node) => {
@@ -76,15 +77,14 @@ export async function runPipeline(
           };
           cmpDef.children.forEach(walkDeps);
           
-          customImports = customImports || [];
-          customImports.push(...deps);
+          customImports = [...(customImports || []), ...deps];
         }
       }
     }
 
     const data = isBuiltIn 
       ? { features } 
-      : { componentName, defaultTag: originalType, features, logic: customLogic, imports: customImports, innerJSX };
+      : { componentName, defaultTag, features, logic: customLogic, imports: customImports, innerJSX };
     
     const content = renderTemplate(templatePath, data);
     const fileName = `${componentName}.tsx`;

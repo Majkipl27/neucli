@@ -1,0 +1,47 @@
+# Regression cases for the generator. Must generate and typecheck cleanly.
+meta:
+  name: Regression
+components:
+  # `tag` must be honoured; `badge` is only used inside this component.
+  promo-box:
+    tag: aside
+    children:
+      - type: badge
+        text: New
+      - type: inner-note
+  # Nested custom component only reachable through promo-box.
+  InnerNote:
+    tag: span
+    logic: |
+      const who = { name: 'Ada' };
+    children:
+      - type: text
+        props:
+          content: "Hi {who.name}, literal {not code} and `ticks` ${'{'}x}"
+pages:
+  - path: /
+    name: Home
+    title: "Quotes \" and `backticks` and ${injection}"
+    meta:
+      description: "it's <fine>"
+    sections:
+      - type: text
+        text: "Price < 10 {not code} & more > less"
+      - type: text
+        text: "Plain text stays plain"
+      - type: text
+        className: 'say "hi"'
+        props:
+          content: "Tom & Jerry \"quoted\""
+      - type: button
+        attrs:
+          aria-label: Open menu
+          data-testid: open-menu
+        props:
+          label: "Open {menu}"
+      - type: promo-box
+  - path: /about
+    name: About
+    sections:
+      - type: text
+        text: About
