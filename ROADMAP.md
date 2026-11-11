@@ -201,9 +201,19 @@ Verified by `npm test` (83 tests, including a fixture with every action, page-le
 - **Counter** in landing-page.yaml uses `state` + `increment count` now; `logic:` stays only for the lucide icon.
 - Fixed in passing: an override dot on a panel section title was a `<button>` inside a `<button>`.
 
-### Phase 7 — Infinite canvas
-- [ ] All pages on one zoomable board
-- [ ] Each page shown at desktop / tablet / phone side by side
+### Phase 7 — Infinite canvas ✅
+- [x] All pages on one zoomable board: a row per page, labelled frames, the active one outlined. Ctrl/Cmd+wheel (or pinch) zooms around the pointer, wheel scrolls, drag empty board or hold Space and drag anywhere to pan. Shift+1 fits the whole board, Shift+2 the selection; the zoom menu has both plus 25/50/100/200%.
+- [x] Each page shown at desktop / tablet / phone side by side, all live from the same document. "All sizes" switches between every breakpoint and only the active one.
+- [x] Every frame is editable with the Phase 3–6 tools. Pressing the mouse on any frame activates it and starts the gesture in the same press; edits there go to that frame's breakpoint, and the breakpoint switcher follows the active frame (picking a page or breakpoint elsewhere scrolls its frame into view). The same selection is outlined on the page's other breakpoints.
+- [x] Preview runs in every frame independently.
+
+Notes and deviations:
+- **Main components keep their tab.** A main component opens on its own (one frame at the active breakpoint) instead of a board area: it has no page or layout context and edits in its own scope, and putting it on the board would mix two kinds of rows that select and route edits differently.
+- **Performance** (Nova, 3 pages × 3 breakpoints, dev build). Before, as a single canvas: first frame styled 268 ms after load; an edit reached it in ≈130 ms (100–158). Naive board (all 9 iframes mounted, all re-rendered on every edit): all styled by 610 ms; an edit took ≈350 ms (164–424). Now: only frames on or near screen mount (6 of 9 on load, styled by ≈310–415 ms); a frame re-renders only when its own page or the shared parts (components, theme, layout, meta) change; the active frame updates first and the others follow in a deferred render. An edit reaches the active frame in ≈128 ms (85–160) and the page's other two breakpoints by ≈215 ms; a theme edit (every frame) ≈340 ms. Tailwind's compiler was already shared per theme.
+- Visibility is worked out from scroll position and zoom, not IntersectionObserver, which stops reporting while the editor window is hidden.
+- Dragging layers between frames is refused with a message, including when the browser keeps feeding the drag to the frame it started in.
+- Off-screen frames keep their last render until they come back; a frame that has never been on screen is a blank sheet of the right size.
+- Hover highlights only show on the active frame.
 
 ### Phase 8 — Code safe zones (CLI; can run in parallel with Phases 3–7)
 - [x] Generated files move to `src/neucli/`; `src/custom/` is never touched
