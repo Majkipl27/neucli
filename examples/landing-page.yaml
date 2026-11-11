@@ -209,7 +209,7 @@ pages:
 
       - type: Section
         id: features
-        className: bg-white
+        fill: white
         props: { title: Features }
         children:
           - type: frame
@@ -233,7 +233,7 @@ pages:
 
       - type: Section
         id: about
-        className: bg-gray-50
+        fill: gray-50
         props: { title: About Us }
         children:
           - type: text
@@ -254,7 +254,8 @@ pages:
 
       - type: Section
         id: contact
-        className: bg-linear-to-tr from-orange-400 to-red-500 text-white
+        fill: { gradient: to-tr, from: orange-400, to: red-500 }
+        color: white
         props: { title: Contact Us }
         children:
           - type: frame

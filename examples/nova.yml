@@ -238,7 +238,7 @@ pages:
     description: A design-forward toolkit for teams who care about craft.
     sections:
       - type: Hero
-        className: bg-linear-to-b from-violet-600/20 via-slate-950 to-slate-950
+        fill: { gradient: to-b, from: violet-600/20, via: slate-950, to: slate-950 }
         props:
           title: Websites, without the chaos.
           subtitle: Nova turns a single YAML file into a production React site. Opinionated defaults, full control when you need it.
@@ -315,7 +315,8 @@ pages:
                   description: Every block, every prop, every theme token. TypeScript types ship with every release.
 
       - type: Section
-        className: bg-slate-900 border-y border-white/5
+        fill: slate-900
+        border: { sides: y, color: white/5 }
         children:
           - type: frame
             layout: { direction: grid, columns: 4, gap: 24 }
@@ -365,7 +366,7 @@ pages:
                 shadow: { size: 2xl, color: black/50 }
 
       - type: Section
-        className: bg-linear-to-br from-violet-600 via-indigo-600 to-cyan-500
+        fill: { gradient: to-br, from: violet-600, via: indigo-600, to: cyan-500 }
         children:
           - type: frame
             layout: { align: center, gap: 24 }
@@ -434,7 +435,8 @@ pages:
                     font: { weight: 600 }
                     className: hover:bg-white/15 transition
               - type: Card
-                className: bg-linear-to-br from-violet-600 to-indigo-700 shadow-2xl shadow-violet-500/20
+                fill: { gradient: to-br, from: violet-600, to: indigo-700 }
+                className: shadow-2xl shadow-violet-500/20
                 props:
                   title: Pro
                   description: Unlimited projects, custom domains, priority support, and the shiny analytics dashboard.
@@ -474,7 +476,7 @@ pages:
                     font: { weight: 600 }
                     className: hover:bg-white/15 transition
       - type: Section
-        className: border-t border-white/5
+        border: { sides: top, color: white/5 }
         children:
           - type: SectionTitle
             props: { title: Frequently asked }
@@ -520,25 +522,29 @@ pages:
                 layout: { gap: 40 }
                 children:
                   - type: Release
-                    className: border-violet-500/60 text-violet-400
+                    border: { color: violet-500/60 }
+                    color: violet-400
                     props:
                       version: v2.0  -  Apr 21, 2026
                       title: The great redesign
                       body: A ground-up rewrite of the editor around a block registry, a Zustand store, and a proper design-token system. 40% smaller bundle, instant undo, and a preview that finally matches production.
                   - type: Release
-                    className: border-cyan-500/60 text-cyan-400
+                    border: { color: cyan-500/60 }
+                    color: cyan-400
                     props:
                       version: v1.8  -  Mar 02, 2026
                       title: Keyboard everything
                       body: Undo, redo, duplicate, copy, paste, export, escape. Every motion-critical action now has a shortcut. Mouse optional.
                   - type: Release
-                    className: border-pink-500/60 text-pink-400
+                    border: { color: pink-500/60 }
+                    color: pink-400
                     props:
                       version: v1.6  -  Jan 14, 2026
                       title: Design tokens, live
                       body: Define colors and fonts in the left sidebar, apply them from the right. CSS variables under the hood, so theming is free.
                   - type: Release
-                    className: border-white/10 text-white/40
+                    border: { color: white/10 }
+                    color: white/40
                     props:
                       version: v1.0  -  Sep 09, 2025
                       title: Nova is here
