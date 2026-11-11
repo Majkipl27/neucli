@@ -206,10 +206,24 @@ Verified by `npm test` (83 tests, including a fixture with every action, page-le
 - [ ] Each page shown at desktop / tablet / phone side by side
 
 ### Phase 8 — Code safe zones (CLI; can run in parallel with Phases 3–7)
-- [ ] Generated files move to `src/neucli/`; `src/custom/` is never touched
-- [ ] Manifest of what neucli wrote, with hashes. Only files in the manifest get cleaned up (today, stale-file cleanup deletes *any* file it didn't generate, including your own)
-- [ ] Warn when a generated file was hand-edited
-- [ ] `file:` components pointing at your own `.tsx`; `logic:` kept
+- [x] Generated files move to `src/neucli/`; `src/custom/` is never touched
+- [x] Manifest of what neucli wrote, with hashes. Only files in the manifest get cleaned up (today, stale-file cleanup deletes *any* file it didn't generate, including your own)
+- [x] Warn when a generated file was hand-edited
+- [x] `file:` components pointing at your own `.tsx`; `logic:` kept
+
+Policies (full write-up in `docs/cli.md`):
+- **Owned and tracked:** everything under `src/neucli/` (pages, components, primitives, hooks, `App.tsx`, `theme.css`) plus `index.html`, which carries the config's title, language, favicon and fonts. A tracked file whose hash no longer matches was edited by hand: it's skipped with a warning (and stays flagged) instead of overwritten or, when stale, deleted. `--force` overwrites. Files not in the manifest are never touched.
+- **Written once, then yours:** `vite.config.ts`, the tsconfigs, `src/main.tsx`, `src/index.css`, `src/vite-env.d.ts`, `src/custom/README.md`. The theme moved out of `index.css` into `src/neucli/theme.css`, which `index.css` imports, so your CSS and the generated theme never share a file.
+- **package.json is merged:** neucli adds or updates the dependencies it needs, but only while their version is still what it wrote last time (the manifest records that), drops the ones it added and no longer needs, and adds missing dev/build/preview scripts. Everything else is kept.
+- **A first run into a folder with files neucli would overwrite** is refused before anything is written; `--force` overrides.
+- **Old layout:** a folder with `.neucli/config.lock.yaml` but no manifest is recognised and refused with an explanation; `--migrate` deletes the old generated files, replaces the old root files, adopts the dependencies, and keeps everything else. Tried on the real Phase 1 Nova output: migrated and built.
+- **`file:` paths are relative to the generated project's `src/`** (`./custom/Pricing.tsx`). They must stay inside `src/`, outside `src/neucli/`. A missing `.tsx` gets a starter file once. Instance styles and `className` arrive as one `className`. `logic:`/`imports:` with `file:` are an error.
+- **Exit codes:** 1 when nothing was written (invalid config, refusal), 2 when edited files were skipped (`--allow-edited` for 0).
+
+Deviations:
+- **Ids inside components get a `useId()` prefix** (the known issue below). This also covers an `id` under `attrs:` and references to it in `aria-controls`, `aria-labelledby`, `htmlFor` and similar. Ids on pages stay literal so `/#anchors` work.
+- **The editor isn't changed.** Core exports `isFileComponent(def)`, and the render helpers (`rootOverrides`, `rootKind`, `componentRestClasses`...) no longer assume a `root`. The canvas still needs a labelled placeholder for `file:` instances.
+- **`.neucli/config.lock.yaml` is still written.** It's how an old-layout folder is recognised, and it records the config the output came from.
 
 ### Phase 9 — Ship it (on hold: only start when Tomasz says so)
 - [ ] Download project as zip from the editor
@@ -224,6 +238,5 @@ Verified by `npm test` (83 tests, including a fixture with every action, page-le
 
 ## Known issues
 
-- An `id` written inside a component is repeated in every copy, so two copies on one page give duplicate ids (and `aria-controls` targets). Fix: derive ids per instance (e.g. React's `useId`) when an id sits inside a component.
 - Tabs have no arrow-key navigation yet.
 - Renaming a state variable in the panel doesn't rewrite the actions and conditions that use it; validation flags them.
