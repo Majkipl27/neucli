@@ -145,9 +145,23 @@ How it behaves, and where it differs from Figma:
 - Dev builds expose the stores as `window.__neucli` for poking at state from the console.
 
 ### Phase 4 — Auto layout panel
-- [ ] Right panel reads and writes structured values exactly: direction, gap, padding, alignment, sizing, fill (theme tokens or hex), radius, border, shadow, typography
-- [ ] Breakpoint switcher: edits go to the base or to the `tablet`/`phone` override, and overridden values are marked
-- [ ] Theme editor: colors and fonts
+- [x] Right panel reads and writes structured values exactly: direction, gap, padding, alignment, sizing, fill (theme tokens or hex), radius, border, shadow, typography
+- [x] Breakpoint switcher: edits go to the base or to the `tablet`/`phone` override, and overridden values are marked
+- [x] Theme editor: colors and fonts
+
+Checked in the editor on both examples with real input, then exported, generated with the CLI and built; every edit showed up in the generated classes.
+- **The panel** (`neucli-web/src/panel/`) has sections for auto layout (direction, columns, wrap, Figma's 3×3 alignment box plus justify/align menus, gap with an optional row/column split, padding as one value, x/y or per side), size (W/H with Fixed/Hug/Fill, min/max, shown/hidden), fill (solid or gradient with direction and from/via/to), typography (color, family from theme fonts, size, weight, line height, letter spacing, align, case, italic), appearance (radius or per-corner radius, opacity, shadow size and color, clip, image fit) and border (color, width, style, sides). Content fields sit above it, and layer name / id / classes / the node's YAML are under Advanced.
+- **Number fields** scrub when you drag their label (Shift ×10), take arrow keys (±1, Shift ±10) and typed values. A typed value is one undo step, a whole scrub is one step however long it pauses (new `sticky` dispatch option), and arrow presses coalesce while you keep pressing. Length fields also take `50%`, `screen`, `60vh`...
+- **The color picker** shows the theme tokens, the full Tailwind v4 palette (swatches read from Tailwind's own theme.css, so they're the exact oklch colors), white/black/transparent, a hex field and opacity.
+- **Breakpoints**: Desktop / Tablet (834px) / Phone (390px) above the canvas. Switching resizes the canvas and sends every panel edit and resize-handle drag to `responsive.tablet` / `.phone`. Values set at the active breakpoint get a blue dot; clicking it drops the override. Choosing a default on tablet/phone (column, stretch, radius 0...) writes it explicitly, since unset there means "same as the bigger breakpoint".
+- **Instances** show only what a copy may set (props, size, fill, text color, border), displaying the component's values merged with the copy's. Values the copy sets itself get a violet dot that resets to the component; "Reset all overrides" clears them all. **Detach** turns the copy into plain layers in one undo step: props substituted, slot content placed where the slots were, overrides merged into the root, nested instances kept. It refuses components with `logic:`/`imports:` (plain layers can't carry code) and checks the result validates.
+- **Theme tokens**: renaming a token rewrites every reference (structured colors at every breakpoint, gradient stops, border/shadow colors, `font.family`, and classes like `hover:bg-primary/50`); deleting one that's still used is refused with a count. Token values are editable as text, so non-hex CSS colors work.
+- **New keys go where a person would write them** (`fill` after `layout`, `direction` first inside `layout`); existing keys never move, so hand-written files keep their shape.
+- The Open menu asks with an in-app dialog instead of `window.confirm`.
+- Core gained one export for the picker: `PALETTE_FAMILIES` / `PALETTE_SHADES`.
+- On an instance at tablet/phone, a value the copy sets anywhere shows the violet dot, and resetting it clears the copy's value at every breakpoint, not just the active one.
+- Removing a fill or border while on tablet/phone drops that breakpoint's override (back to the desktop value) rather than clearing it there; to clear it only on phone, set it to `transparent`.
+- Several border sides (`sides: [top, bottom]`) show read-only in the panel; edit them in the YAML.
 
 ### Phase 5 — Components, instances, layouts
 - [ ] "Create component" from a selection; declared props; instances
