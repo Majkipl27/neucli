@@ -128,11 +128,21 @@ Deviations and additions:
 - **The editor bundles the CLI repo's examples** (`neucli/examples/*` export) and opens on Nova. Open ▸ switches between Nova, the landing page and a blank site.
 
 ### Phase 3 — Direct manipulation
-- [ ] Selection box with handles; hover outline; parent/child selection with Enter / Shift+Enter, Esc to deselect
-- [ ] Drag to reorder inside auto layout, with a drop indicator; drag between frames
-- [ ] Resize handles that set width/height as fixed, or switch to hug / fill (Figma's sizing modes)
-- [ ] Double-click text to edit inline
-- [ ] Multi-select (Shift+click), group into frame
+- [x] Selection box with handles; hover outline; parent/child selection with Enter / Shift+Enter, Esc to deselect
+- [x] Drag to reorder inside auto layout, with a drop indicator; drag between frames
+- [x] Resize handles that set width/height as fixed, or switch to hug / fill (Figma's sizing modes)
+- [x] Double-click text to edit inline
+- [x] Multi-select (Shift+click), group into frame
+
+Checked in the editor on both examples with real mouse and keyboard input (plus scripted pointer events for timing-sensitive drags), then exported, generated with the CLI and built.
+
+How it behaves, and where it differs from Figma:
+- **Click picks the outermost node not yet entered**: siblings of the selection and of its ancestors are directly clickable; going deeper takes a double-click, or Cmd/Ctrl+click to jump straight to the deepest node. Hover shows what a click would pick. Esc selects the parent (clears at the top), Enter the first child, Shift+Enter the parent. Enter on a text node starts editing it.
+- **Dragging** reorders inside the parent's flow (line across a column, down a row, beside the nearest cell in a grid) and drops into whatever container is under the pointer. Hovering a *sibling* container only reorders; resting on it for half a second enters it (spring-loading), so reordering a row of cards doesn't nest them. Drops are checked with core's validator first: an invalid target turns the indicator red and is refused. Esc cancels. Named slots accept drops next to their existing content, not when empty.
+- **Resize** previews on the element and writes `width` / `height` in px once, on release (Shift snaps to 8). The right panel's new Size section switches each axis between Fixed (starts from the rendered size), Hug and Fill, or unsets it. Values always go to the base style; per-breakpoint editing is Phase 4.
+- **Inline text editing** works on text nodes and text-only links (Enter commits, Shift+Enter is a newline, Esc cancels). Text inside a component instance that is exactly one of its text props (`{title}`) edits that prop on the instance; other component text can't be edited from the canvas.
+- **Multi-select**: Shift+click on the canvas or in the layers panel; delete, duplicate (Cmd+D) and drag work on all of them. Cmd+G wraps selected siblings in a frame that keeps the parent's direction and gap, so nothing moves; Cmd+Shift+G unwraps a frame (its own styles are dropped). Copy/paste still uses the primary selection only.
+- Dev builds expose the stores as `window.__neucli` for poking at state from the console.
 
 ### Phase 4 — Auto layout panel
 - [ ] Right panel reads and writes structured values exactly: direction, gap, padding, alignment, sizing, fill (theme tokens or hex), radius, border, shadow, typography
