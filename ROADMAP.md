@@ -164,12 +164,24 @@ Checked in the editor on both examples with real input, then exported, generated
 - Several border sides (`sides: [top, bottom]`) show read-only in the panel; edit them in the YAML.
 
 ### Phase 5 — Components, instances, layouts
-- [ ] "Create component" from a selection; declared props; instances
-- [ ] Editing the main component updates every instance
-- [ ] Detach instance
-- [ ] Slots
-- [ ] Layouts / AppShell: page `layout:` + presets (marketing navbar/footer, sidebar app, dashboard)
-- [ ] Preset library: Navbar, Hero, Card, Footer as editable components
+- [x] "Create component" from a selection; declared props; instances
+- [x] Editing the main component updates every instance
+- [x] Detach instance (landed in Phase 4)
+- [x] Slots
+- [x] Layouts / AppShell: page `layout:` + presets (marketing navbar/footer, sidebar app, dashboard)
+- [x] Preset library: Navbar, Hero, Card, Footer as editable components
+
+Checked in the editor with real input (create component with text props, prop rename and defaults, main-component style edits showing on every copy, slots, a drag into an empty named slot, each layout preset at desktop and phone, each library preset, undo/redo), then both examples were edited, exported, generated and built. A site using every preset is generated and built in `npm test` and was checked in a browser at desktop and phone width.
+- **Main components**: a Components list in the left sidebar opens a component's definition on the canvas, with a violet tab and ✕ back to the page. "Edit main" on an instance does the same. Every Phase 3/4 tool works there; the root is path `[0]` of a one-item list, and anything that would delete the root, add a sibling next to it or turn it into a slot is refused. Text props without a default show as `{name}` on the main component so there's something to click.
+- **Component panel** (nothing selected on a main component): rename (instances, `layout:` references and page layouts follow), props with name / type / default (renaming a prop rewrites `{prop}` in the tree and every instance's value; removing one puts its default back into bound text), slots, usage count, delete (refused while anything uses it).
+- **Text binding**: a text or text link inside a main component has a Prop picker: bind to a text prop, make a new one from the current text, or unbind back to fixed text. Double-clicking bound text on the main component edits the prop's default.
+- **Create component** (⌥⌘K / Ctrl+Alt+K, or Component ▸ Create component): asks for a PascalCase name in-app and lists every plain text inside, each becoming a `text` prop with the current text as default (names editable, each optional), so the page looks the same afterwards. Several siblings are grouped into a frame first. One undo step. Creating from a component's root is refused.
+- **Slots**: Component ▸ Slot inserts the default slot first, then named ones (`actions`, `slot3`...). On the main component slots render as dashed placeholders, selectable, with a name field. While dragging on a page, an instance's empty named slots show drop targets, so a first item can go in (Phase 3 couldn't).
+- **Presets** live in core (`src/core/presets/`): layouts Marketing, Sidebar app, Dashboard; blocks Navbar, Hero, Section, Card, Button, Stat, Footer. Palette colors only, so they suit any theme. `insertPreset` copies definitions into `components:`, reuses an identical definition under any name, and renames on a clash (`Navbar2`) with references following. The page panel's layout picker can pick a layout or create one from a preset (or a blank one), for the page or as the site default; the Component menu inserts library blocks.
+- The canvas now renders a layout's props with their defaults, as the generated route layout does (it used to show `{brand}` literally).
+- A sidebar layout's phone toggle is Phase 6; on phone the sidebar becomes a wrapped bar above the content.
+- Layer tree drag (left sidebar) still can't target an empty named slot; drag on the canvas instead.
+- Bound text inside a nested instance on a main component isn't editable in place (as on pages, only an instance's own `{textProp}` text is).
 
 ### Phase 6 — Interactions
 - [ ] `state`, `on`, `visibleWhen` in the schema; generated as `useState` + handlers
