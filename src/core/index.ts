@@ -20,3 +20,5 @@ export {
   nodeClasses, componentRestClasses, rootOverrides, slotParentFlows, pageParentFlows, layoutOf,
   sourceOf, isLinkContainer, rootKind, pickOverridable, omitOverridable,
 } from './render.ts';
+export { PRESETS, getPreset, insertPreset } from './presets/index.ts';
+export type { Preset, InsertedPreset } from './presets/index.ts';

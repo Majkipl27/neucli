@@ -117,7 +117,7 @@ components:
 ```
 
 - Names are PascalCase and must match exactly. `InnerNote` and `inner-note` can't both exist, so files can't collide on case-insensitive disks. Names that the generated code uses (`Frame`, `Text`, `Image`, `Link`, `Input`, `App`, `Router`...) are rejected.
-- Prop types: `text`, `url`, `image`, `number`, `boolean`. `children`, `className`, `sizing`, `id`, `key`, `ref`, `tag`, `style` are reserved.
+- Prop types: `text`, `url`, `image`, `number`, `boolean`. `children`, `className`, `overrides`, `id`, `key`, `ref`, `tag`, `style` are reserved.
 - `{prop}` inside a component's strings interpolates (`content`, `src`, `alt`, `href`, `placeholder`, `attrs`, instance props). Outside components braces are literal text.
 - `logic:` is placed at the top of the component function; `imports:` at the top of the file. Variables `logic` declares can be interpolated too (`content: "{count}"`), and an attribute whose whole value is `{expr}` is passed as code (`onClick: "{increment}"`). Use this for state until interactions land.
 
@@ -149,6 +149,10 @@ The instance's values are merged over the component root's (`border` merges key 
 ## Layouts
 
 A layout is a component with a default `slot` where the page goes. With routing, pages that share a layout render inside one React Router layout route, so the layout stays mounted while you navigate.
+
+### Presets
+
+`neucli/core` ships ready-made components as plain format data (`src/core/presets/`): layouts `Marketing` (navbar, page, footer), `SidebarApp` and `Dashboard`, and blocks `Navbar`, `Hero`, `Section`, `Card`, `Button`, `Stat`, `Footer`. They use Tailwind palette colors only, so they fit any theme. `insertPreset(config, id)` copies a preset's definitions into `components:`; after that they're ordinary components you own. An identical definition already in the config (under any name) is reused, and a name clash gets a free name (`Navbar2`) with references following.
 
 ## Interactions (Phase 6, parsed only)
 
