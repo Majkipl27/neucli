@@ -110,10 +110,22 @@ Deviations and additions:
 - **`removeStaleFiles` still deletes anything in the generated folders it didn't write** (Phase 8 fixes this with a manifest).
 
 ### Phase 2 — Truthful canvas (editor)
-- [ ] Editor document model switched to `neucli/core`'s schema
-- [ ] Canvas renders inside an iframe with Tailwind compiled at runtime from the config's theme
-- [ ] Selection and hover drawn as an overlay above the iframe, never as classes on the element (no more ring/shadow clashes, no "+ Add inside" layout jump)
-- [ ] Zoom to fit on load, zoom to selection
+- [x] Editor document model switched to `neucli/core`'s schema
+- [x] Canvas renders inside an iframe with Tailwind compiled at runtime from the config's theme
+- [x] Selection and hover drawn as an overlay above the iframe, never as classes on the element (no more ring/shadow clashes, no "+ Add inside" layout jump)
+- [x] Zoom to fit on load, zoom to selection
+
+Checked against real builds: for every page of both examples the canvas DOM matches the CLI's built site (classes, tags, attributes), and on Nova's home page all 81 element boxes match to the pixel at 1280×800.
+
+Deviations and additions:
+- **Class computation moved into core** (`src/core/render.ts`: `nodeClasses`, `componentRestClasses`, `rootSizing`, `slotParentFlows`, `pageParentFlows`, `layoutOf`). The code generator and the canvas both call it, so they can't drift. Generated output is byte-identical to before the move.
+- **The editor keeps the document as written** (prop shorthands, key order) and validates it with core on every change. While an edit leaves it invalid, the canvas keeps the last valid version and lists the errors.
+- **`logic:` doesn't run on the canvas.** Names it declares stay as literal `{name}` text and `{expr}` event handlers are dropped. Everything else, props and slots included, renders like the build.
+- **Viewport units are pinned to the simulated 1280×800 viewport.** The iframe grows to the page's full height, so `100vh` would otherwise mean the whole page.
+- **Zoom to fit fits the page width** (Shift+1), not the whole page; a full long page would be unreadably small. Zoom to selection is Shift+2.
+- **The right panel is minimal**: content fields per node type, instance props from the component's declared props, layer name / id / classes, and the node's YAML, editable and only applied when the whole document still validates. The real auto layout panel is Phase 4.
+- **Inserting** lives in the toolbar: the five primitives plus a Component menu. A new node goes inside the selection if it can hold children, after it otherwise, or at the end of the page.
+- **The editor bundles the CLI repo's examples** (`neucli/examples/*` export) and opens on Nova. Open ▸ switches between Nova, the landing page and a blank site.
 
 ### Phase 3 — Direct manipulation
 - [ ] Selection box with handles; hover outline; parent/child selection with Enter / Shift+Enter, Esc to deselect
