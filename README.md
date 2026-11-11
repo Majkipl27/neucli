@@ -27,6 +27,10 @@ Generate your project with a single command:
 npx neucli generate example.yaml --output ./my-new-site
 ```
 
+Run it again whenever the config changes. Generated code lives in `src/neucli/` and is rewritten each time; your own code goes in `src/custom/` (or anywhere else outside `src/neucli/`) and is never touched. A manifest tracks what neucli wrote, so a generated file you edited by hand is skipped with a warning instead of overwritten, and a folder with someone else's files is refused. Your own React components plug in from the config with `file:`.
+
+Flags: `--force` (overwrite edited files), `--migrate` (move a folder from an older neucli to the new layout), `--keep-stale`, `--allow-edited`. Exit code 2 means edited files were skipped. Details in [docs/cli.md](docs/cli.md); the config format is in [docs/format.md](docs/format.md).
+
 ### Example Configuration
 
 ```yaml

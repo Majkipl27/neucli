@@ -64,7 +64,11 @@ export interface ComponentDef {
   imports?: string[];
   /** Code placed at the top of the generated component's function body. */
   logic?: string;
-  /** Phase 8: path to your own .tsx file instead of `root`. Parsed, not generated yet. */
+  /**
+   * Your own React component instead of `root`: a path relative to the
+   * generated project's `src/` (e.g. `./custom/Pricing.tsx`). It needs a default
+   * export and receives the declared props, `children` and `className`.
+   */
   file?: string;
 }
 

@@ -10,13 +10,51 @@ import {
   COLUMN_FLOWS, childFlows, PRIMITIVE_COMPONENTS, collectSlots, pageComponentName, isInstance,
   sourceOf, isLinkContainer, slotParentFlows, rootOverrides, layoutOf,
   nodeClassVariants, componentRestVariants, splitVariants, parseAction, parseCondition, conditionJs, negatedConditionJs,
-  actionJs, attrCondition, INTERACTIVE_TAGS, typeOfValue, declaredNames,
+  actionJs, attrCondition, INTERACTIVE_TAGS, typeOfValue, declaredNames, isFileComponent,
 } from '../core/index.ts';
 import type {
   ClassVariants, ComponentDef, Condition, Config, Flows, InstanceNode, Node, Page, PropDef, StateType,
 } from '../core/index.ts';
 import { attr, element, identityScope, textChild, valueAttr } from './jsx.ts';
 import type { Scope } from './jsx.ts';
+import { fileComponentPath } from './paths.ts';
+
+/** Where a generated file sits under src/neucli/, for relative imports. */
+type FileAt = 'pages' | 'components' | 'app';
+
+/** Import path of a component (generated, or your own `file:` one) from a generated file. */
+export function componentImport(config: Config, name: string, from: FileAt): string {
+  const def = config.components?.[name];
+  if (isFileComponent(def)) {
+    const target = fileComponentPath(def.file).replace(/\.(tsx|ts|jsx|js)$/, '');
+    return `${from === 'app' ? '../' : '../../'}${target}`;
+  }
+  if (from === 'components') return `./${name}`;
+  return `${from === 'app' ? './' : '../'}components/${name}`;
+}
+
+/** Ids written inside a component: prefixed per instance with `useId()` so copies don't collide. */
+interface IdScope {
+  names: Set<string>;
+  /** The variable holding `useId()`. */
+  uid: string;
+}
+
+/** Attributes whose value names other elements' ids. */
+const ID_REF_ATTRS = new Set([
+  'aria-controls', 'aria-labelledby', 'aria-describedby', 'aria-owns', 'aria-activedescendant',
+  'aria-details', 'aria-errormessage', 'aria-flowto', 'for', 'htmlFor', 'list', 'form', 'headers',
+]);
+
+/** `id={`${uid}-panel`}`, or null when nothing in the value is a component-local id. */
+function idAttr(key: string, value: unknown, ids: IdScope | null): string | null {
+  if (!ids || typeof value !== 'string') return null;
+  const parts = value.split(/\s+/).filter(Boolean);
+  if (!parts.some(p => ids.names.has(p))) return null;
+  const esc = (t: string) => t.replace(/[\\`]/g, m => `\\${m}`).replace(/\$\{/g, '\\${');
+  const tpl = parts.map(p => (ids.names.has(p) ? `\${${ids.uid}}-${esc(p)}` : esc(p))).join(' ');
+  return `${key}={\`${tpl}\`}`;
+}
 
 /** A state variable in scope: the names generated code uses for it. */
 interface StateRef {
@@ -47,6 +85,8 @@ interface Ctx {
   components: Set<string>;
   /** Inside a component definition: emit `{children}` / `{name}` for slots. */
   inComponent: boolean;
+  /** Component-local ids (components only). */
+  ids: IdScope | null;
 }
 
 /** Interpolation scope: props/logic plus state. */
@@ -129,7 +169,7 @@ function declareState(node: Node, ctx: Ctx): Ctx {
 
 function commonAttrs(node: Exclude<Node, { type: 'slot' }>, ctx: Ctx): string[] {
   const out: string[] = [];
-  if (node.id) out.push(attr('id', node.id, null));
+  if (node.id) out.push(idAttr('id', node.id, ctx.ids) ?? attr('id', node.id, null));
   return out;
 }
 
@@ -139,6 +179,8 @@ function extraAttrs(node: Exclude<Node, { type: 'slot' }>, ctx: Ctx): string[] {
     const key = k === 'class' ? 'className' : k;
     const c = attrCondition(v, name => ctx.state.has(name));
     if (c) return `${key}={${conditionJs(c, refOf(ctx))}}`;
+    const ref = key === 'id' || ID_REF_ATTRS.has(key) ? idAttr(key, v, ctx.ids) : null;
+    if (ref) return ref;
     return valueAttr(key, v, scopeOf(ctx), ctx.inComponent);
   });
 }
@@ -205,7 +247,7 @@ function eventAttrs(node: Exclude<Node, { type: 'slot' }>, ctx: Ctx): string[] {
       }
       if (action.kind === 'toggle' && ref.controls) {
         out.push(`aria-expanded={${ref.js}}`);
-        if (ref.controlsId) out.push(attr('aria-controls', ref.controlsId, null));
+        if (ref.controlsId) out.push(idAttr('aria-controls', ref.controlsId, ctx.ids) ?? attr('aria-controls', ref.controlsId, null));
       }
       if (action.kind === 'set' && action.value === true && ref.dialog) out.push('aria-haspopup="dialog"');
     } else if (event === 'submit') {
@@ -345,7 +387,18 @@ function emitInstance(node: InstanceNode, indent: number, parent: Flows, ctx: Ct
     attrs.push(`${slot}={\n${pad(4)}<>\n${inner.join('\n')}\n${pad(4)}</>\n${pad(2)}}`);
   }
 
-  if (forward) {
+  if (isFileComponent(def)) {
+    // Your own component: instance styles arrive as plain classes on className.
+    if (forward) {
+      ctx.primitives.add('cx');
+      attrs.push(`className={cx(overrides ?? ${JSON.stringify(forward.overridesDefault)}, className)}`, '{...rest}');
+    } else {
+      const classes = [rootOverrides(ctx.config, def, node, parent), node.className].filter(Boolean).join(' ');
+      attrs.push(...commonAttrs(node, ctx));
+      if (classes) attrs.push(`className="${classes}"`);
+      attrs.push(...extraAttrs(node, ctx));
+    }
+  } else if (forward) {
     attrs.push(`overrides={overrides ?? ${JSON.stringify(forward.overridesDefault)}}`, 'className={className}', '{...rest}');
   } else {
     const overrides = rootOverrides(ctx.config, def, node, parent);
@@ -385,7 +438,7 @@ function hookLines(ctx: Ctx): string {
 export function pageSource(config: Config, page: Page, parent: Flows): string {
   const ctx: Ctx = {
     config, scope: null, state: new Map(), hooks: [], used: baseUsed(config),
-    primitives: new Set(), components: new Set(), inComponent: false,
+    primitives: new Set(), components: new Set(), inComponent: false, ids: null,
   };
   const sections = page.sections.map(s => emitNode(s, 6, parent, ctx));
   const name = pageComponentName(page.name);
@@ -393,7 +446,7 @@ export function pageSource(config: Config, page: Page, parent: Flows): string {
   const imports = [
     ...(ctx.hooks.length ? [`import { useState } from 'react';`] : []),
     primitiveImport(ctx, '../primitives'),
-    ...[...ctx.components].sort().map(c => `import ${c} from '../components/${c}';`),
+    ...[...ctx.components].sort().map(c => `import ${c} from '${componentImport(config, c, 'pages')}';`),
     `import useSEO from '../hooks/useSEO';`,
   ].filter(Boolean);
 
@@ -424,11 +477,15 @@ export function componentSource(config: Config, name: string, def: ComponentDef)
   if (slots.hasDefault) scopeNames.add('children');
   const used = baseUsed(config);
   [...scopeNames, 'overrides', 'className', 'rest', 'children'].forEach(n => used.add(n));
+  const root = def.root!;
+  const localIds = new Set([root, ...descendants(root)]
+    .flatMap(n => [(n as { id?: string }).id, (n as { attrs?: Record<string, unknown> }).attrs?.id])
+    .filter((id): id is string => typeof id === 'string' && id.length > 0));
+  const ids: IdScope | null = localIds.size ? { names: localIds, uid: freshName('uid', used) } : null;
   const ctx: Ctx = {
     config, scope: identityScope(scopeNames), state: new Map(), hooks: [], used,
-    primitives: new Set(), components: new Set(), inComponent: true,
+    primitives: new Set(), components: new Set(), inComponent: true, ids,
   };
-  const root = def.root!;
   const overridesDefault = rootOverrides(config, def, null, COLUMN_FLOWS);
 
   let body: string;
@@ -463,15 +520,21 @@ export function componentSource(config: Config, name: string, def: ComponentDef)
 
   const reactTypes = ['HTMLAttributes', ...(slots.hasDefault || slots.named.size ? ['ReactNode'] : [])];
   // A component whose `imports:` already bring useState (hand-written logic) doesn't get a second one.
-  const importsUseState = (def.imports ?? []).some(l => /\buseState\b/.test(l) && /from\s+['"]react['"]/.test(l));
+  const importsFromReact = (hook: string) =>
+    (def.imports ?? []).some(l => new RegExp(`\\b${hook}\\b`).test(l) && /from\s+['"]react['"]/.test(l));
+  const reactHooks = [
+    ...(ids && !importsFromReact('useId') ? ['useId'] : []),
+    ...(ctx.hooks.length && !importsFromReact('useState') ? ['useState'] : []),
+  ];
   const imports = [
-    ...(ctx.hooks.length && !importsUseState ? [`import { useState } from 'react';`] : []),
+    ...(reactHooks.length ? [`import { ${reactHooks.join(', ')} } from 'react';`] : []),
     `import type { ${reactTypes.join(', ')} } from 'react';`,
     ...(def.imports ?? []),
     primitiveImport(ctx, '../primitives'),
-    ...[...ctx.components].filter(c => c !== name).sort().map(c => `import ${c} from './${c}';`),
+    ...[...ctx.components].filter(c => c !== name).sort().map(c => `import ${c} from '${componentImport(config, c, 'components')}';`),
   ].filter(Boolean);
 
+  if (ids) ctx.hooks.unshift(`const ${ids.uid} = useId();`);
   const logic = hookLines(ctx) + (ctx.hooks.length && def.logic ? '\n' : '') + (def.logic
     ? def.logic.trimEnd().split('\n').map(l => (l ? `  ${l}` : '')).join('\n') + '\n'
     : '') + (ctx.hooks.length || def.logic ? '\n' : '');
@@ -499,7 +562,7 @@ export function appSource(config: Config, routing: boolean): string {
   const layouts = [...new Set(pages.map(p => p.layout).filter((l): l is string => !!l))];
   const imports = [
     ...(routing ? [`import { BrowserRouter, Routes, Route${layouts.length ? ', Outlet' : ''} } from 'react-router-dom';`, `import ScrollToHash from './ScrollToHash';`] : []),
-    ...layouts.sort().map(l => `import ${l} from './components/${l}';`),
+    ...layouts.sort().map(l => `import ${l} from '${componentImport(config, l, 'app')}';`),
     ...(routing ? pages : pages.slice(0, 1)).map(p => `import ${p.name} from './pages/${p.name}';`),
   ];
 

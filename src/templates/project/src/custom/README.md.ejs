@@ -1,0 +1,28 @@
+# src/custom
+
+Your code. neucli never writes, changes or deletes anything in this folder.
+
+Generated code lives in `src/neucli/` and is rewritten on every `neucli generate`.
+Don't edit it: neucli skips files you edited (with a warning) instead of
+overwriting them, so your config and the code drift apart.
+
+To use your own React component from the config, put it here and point a
+component at it:
+
+```yaml
+components:
+  Pricing:
+    file: ./custom/Pricing.tsx   # relative to src/
+    props:
+      plan: text
+pages:
+  - path: /
+    name: Home
+    sections:
+      - type: Pricing
+        props: { plan: Pro }
+```
+
+The file needs a default export. It receives the declared props, `children`,
+and `className` (sizing, fill, color and border set on the instance arrive as
+classes there).

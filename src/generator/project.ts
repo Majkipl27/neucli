@@ -1,14 +1,23 @@
 /**
- * Project scaffolding: package.json, Vite + Tailwind v4 setup, index.css with
- * the theme, and the primitives copied from core.
+ * Project scaffolding: which files neucli owns, which it writes once, and how
+ * it merges package.json.
+ *
+ * - Owned (tracked in the manifest, rewritten every run): everything under
+ *   `src/neucli/` (pages, components, primitives, hooks, App, theme.css) and
+ *   `index.html`, which carries the config's title, language, favicon and fonts.
+ * - Written once if missing, then yours: vite.config.ts, tsconfig*.json,
+ *   src/main.tsx, src/index.css, src/vite-env.d.ts, src/custom/README.md.
+ * - Merged: package.json. neucli adds or updates the dependencies it needs and
+ *   drops the ones it added earlier and no longer needs. Your own dependencies,
+ *   scripts and fields stay, and so does a version you changed by hand.
  */
 
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { renderTemplate } from './renderer.ts';
-import { writeIfChanged, DiffReport } from './differ.ts';
 import { OUT } from './paths.ts';
+import type { Manifest, Output } from './output.ts';
 import { themeCss, googleFontsUrl } from '../core/index.ts';
 import type { Config } from '../core/index.ts';
 
@@ -28,6 +37,7 @@ export const DEV_DEPENDENCIES = {
   typescript: '~5.9.0',
   vite: '^7.1.0',
 };
+const SCRIPTS = { dev: 'vite', build: 'tsc -b && vite build', preview: 'vite preview' };
 
 export function usesRouting(config: Config): boolean {
   return config.pages.length > 1;
@@ -37,52 +47,118 @@ function sorted(deps: Record<string, string>): Record<string, string> {
   return Object.fromEntries(Object.entries(deps).sort(([a], [b]) => a.localeCompare(b)));
 }
 
-const PROJECT_FILES: [template: string, output: string][] = [
-  ['project/package.json.ejs', 'package.json'],
+/** Starter files: written when missing, never again. */
+const SEEDS: [template: string, output: string][] = [
   ['project/vite.config.ts.ejs', 'vite.config.ts'],
   ['project/tsconfig.json.ejs', 'tsconfig.json'],
   ['project/tsconfig.app.json.ejs', 'tsconfig.app.json'],
-  ['project/index.html.ejs', 'index.html'],
   ['project/src/main.tsx.ejs', 'src/main.tsx'],
   ['project/src/index.css.ejs', 'src/index.css'],
   ['project/src/vite-env.d.ts.ejs', 'src/vite-env.d.ts'],
-  ['project/src/hooks/useSEO.ts.ejs', `${OUT.hooks}/useSEO.ts`],
+  ['project/src/custom/README.md.ejs', `${OUT.custom}/README.md`],
 ];
 
-/** Writes project-level files; returns the primitives file names it wrote. */
-export function scaffoldProject(config: Config, outputDir: string, report: DiffReport): Set<string> {
+export interface ScaffoldOptions {
+  previous: Manifest | null;
+  /** Treat dependencies already in package.json as neucli's (old-layout migration). */
+  adoptDependencies?: boolean;
+}
+
+/** Plans project-level files: owned ones, starter files, and the package.json merge. */
+export function scaffoldProject(config: Config, out: Output, options: ScaffoldOptions) {
   const routing = usesRouting(config);
   const data = {
-    packageName: config.meta.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || 'neucli-site',
     siteName: config.meta.name,
     siteDescription: config.meta.description ?? '',
     siteLang: config.meta.lang ?? 'en',
     favicon: config.meta.favicon ?? '',
     fontsUrl: googleFontsUrl(config.theme),
-    themeCss: themeCss(config.theme),
+  };
+
+  out.managed(OUT.html, renderTemplate('project/index.html.ejs', data));
+  out.managed(OUT.theme, themeFile(config));
+  out.managed(`${OUT.hooks}/useSEO.ts`, renderTemplate('project/src/hooks/useSEO.ts.ejs', data));
+  if (routing) out.managed(OUT.scrollToHash, renderTemplate('project/src/ScrollToHash.tsx.ejs', data));
+  for (const [template, output] of SEEDS) out.seed(output, renderTemplate(template, data));
+
+  // Primitives: verbatim copies of core, except InternalLink, which uses the router when there is one.
+  for (const file of fs.readdirSync(PRIMITIVES_DIR)) {
+    const content = file === 'InternalLink.tsx' && routing
+      ? renderTemplate('project/src/InternalLink.router.tsx.ejs', data)
+      : fs.readFileSync(path.join(PRIMITIVES_DIR, file), 'utf-8');
+    out.managed(`${OUT.primitives}/${file}`, content);
+  }
+
+  const wanted = {
     dependencies: sorted({ ...BASE_DEPENDENCIES, ...(routing ? ROUTER_DEPENDENCY : {}), ...config.dependencies }),
     devDependencies: sorted(DEV_DEPENDENCIES),
   };
+  const existing = path.join(out.dir, OUT.packageJson);
+  const current = fs.existsSync(existing) ? fs.readFileSync(existing, 'utf-8') : null;
+  const merged = mergePackageJson(current, wanted, packageName(config), options);
+  out.merged(OUT.packageJson, merged.content, merged.record);
+}
 
-  for (const [template, output] of PROJECT_FILES) {
-    writeIfChanged(path.join(outputDir, output), renderTemplate(template, data), report);
+function packageName(config: Config): string {
+  return config.meta.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || 'neucli-site';
+}
+
+function themeFile(config: Config): string {
+  const css = themeCss(config.theme);
+  const header = '/* Generated by neucli from the config\'s theme. Imported by src/index.css. */\n';
+  return css ? `${header}\n${css}` : header;
+}
+
+type Deps = { dependencies: Record<string, string>; devDependencies: Record<string, string> };
+
+/**
+ * package.json: neucli manages only the dependencies it needs.
+ * - Missing file: a fresh one with name, scripts and those dependencies.
+ * - Existing file: each needed dependency is added, or updated when its version
+ *   is still the one neucli wrote last time (a version you changed is yours).
+ *   Dependencies neucli added earlier and no longer needs go, unless you changed
+ *   them. Missing dev/build/preview scripts are added. Everything else stays.
+ */
+export function mergePackageJson(
+  current: string | null,
+  wanted: Deps,
+  name: string,
+  options: ScaffoldOptions,
+): { content: string; record: Deps } {
+  if (current === null) {
+    const pkg = { name, private: true, version: '0.0.1', type: 'module', scripts: SCRIPTS, ...wanted };
+    return { content: JSON.stringify(pkg, null, 2) + '\n', record: wanted };
   }
 
-  const scrollToHash = path.join(outputDir, OUT.scrollToHash);
-  if (routing) {
-    writeIfChanged(scrollToHash, renderTemplate('project/src/ScrollToHash.tsx.ejs', data), report);
-  } else if (fs.existsSync(scrollToHash)) {
-    fs.unlinkSync(scrollToHash);
-    report.remove(scrollToHash);
+  let pkg: Record<string, unknown>;
+  try {
+    pkg = JSON.parse(current);
+  } catch (err) {
+    throw new Error(`package.json is not valid JSON (${(err as Error).message}); fix it and run again`);
   }
 
-  // Primitives: verbatim copies of core, except InternalLink, which uses the router when there is one.
-  const written = new Set<string>();
-  for (const file of fs.readdirSync(PRIMITIVES_DIR)) {
-    let content = fs.readFileSync(path.join(PRIMITIVES_DIR, file), 'utf-8');
-    if (file === 'InternalLink.tsx' && routing) content = renderTemplate('project/src/InternalLink.router.tsx.ejs', data);
-    writeIfChanged(path.join(outputDir, OUT.primitives, file), content, report);
-    written.add(file);
+  const record: Deps = { dependencies: {}, devDependencies: {} };
+  for (const section of ['dependencies', 'devDependencies'] as const) {
+    const deps = { ...((pkg[section] as Record<string, string>) ?? {}) };
+    const before = options.adoptDependencies ? deps : options.previous?.packageJson?.[section] ?? {};
+    for (const [dep, version] of Object.entries(wanted[section])) {
+      const now = deps[dep];
+      if (now === undefined || now === before[dep] || now === version) {
+        deps[dep] = version;
+        record[section][dep] = version;
+      }
+    }
+    if (!options.adoptDependencies) {
+      for (const [dep, version] of Object.entries(before)) {
+        if (!(dep in wanted[section]) && deps[dep] === version) delete deps[dep];
+      }
+    }
+    pkg[section] = sorted(deps);
   }
-  return written;
+
+  const scripts = { ...((pkg.scripts as Record<string, string>) ?? {}) };
+  for (const [key, cmd] of Object.entries(SCRIPTS)) scripts[key] ??= cmd;
+  pkg.scripts = scripts;
+
+  return { content: JSON.stringify(pkg, null, 2) + '\n', record };
 }

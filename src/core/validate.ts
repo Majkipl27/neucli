@@ -275,10 +275,25 @@ export function validate(raw: unknown): ValidationResult {
   checkPages(config, errors);
 
   for (const [name, def] of Object.entries(components)) {
-    if (def.file) warnings.push(`components.${name}.file: file components are parsed but not generated yet (Phase 8).`);
+    if (!def.file) continue;
+    const problem = fileComponentProblem(def.file);
+    if (problem) err(['components', name, 'file'], problem);
+    if (def.logic !== undefined || def.imports !== undefined) {
+      err(['components', name], 'logic and imports only apply to components with a root; put that code in the file');
+    }
   }
 
   return errors.length ? { errors, warnings } : { config, errors, warnings };
+}
+
+/** `file:` must stay inside the generated project's src/, outside neucli's own folder. */
+function fileComponentProblem(file: string): string | null {
+  const rel = file.replace(/^\.\//, '').replace(/^src\//, '');
+  if (rel.startsWith('/') || /^[a-zA-Z]:/.test(rel)) return 'file is relative to the generated project\'s src/ (e.g. ./custom/Pricing.tsx)';
+  if (rel.split('/').includes('..')) return 'file must stay inside src/ (no ..)';
+  if (rel === 'neucli' || rel.startsWith('neucli/')) return 'src/neucli/ is rewritten on every run; put your component in src/custom/';
+  if (!/\.(tsx|ts|jsx|js)$/.test(rel)) return 'file must be a .tsx, .ts, .jsx or .js module';
+  return null;
 }
 
 function matchesPropType(p: PropDef, value: unknown): boolean {
@@ -295,6 +310,8 @@ export interface SlotInfo {
 
 /** Slots declared in a component's own tree (not inside instances' slot content of other components). */
 export function collectSlots(def: ComponentDef): SlotInfo {
+  // A `file:` component takes `children`; named slots are its own business.
+  if (def.file && !def.root) return { hasDefault: true, named: new Set(), duplicates: [] };
   const info: SlotInfo = { hasDefault: false, named: new Set(), duplicates: [] };
   const seen = new Set<string>();
   const visit = (node: Node) => {

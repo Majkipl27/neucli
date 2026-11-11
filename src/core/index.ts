@@ -19,7 +19,7 @@ export { PRIMITIVE_COMPONENTS, RESERVED_NAMES, RESERVED_PROPS, pageComponentName
 export {
   nodeClasses, componentRestClasses, rootOverrides, slotParentFlows, pageParentFlows, layoutOf,
   sourceOf, isLinkContainer, rootKind, pickOverridable, omitOverridable, OVERRIDABLE,
-  nodeClassVariants, componentRestVariants, pickVariant, splitVariants,
+  nodeClassVariants, componentRestVariants, pickVariant, splitVariants, isFileComponent,
 } from './render.ts';
 export type { ClassVariant, ClassVariants } from './render.ts';
 export {

@@ -157,7 +157,7 @@ async function generate(name: string) {
 
 test('interactions fixture: hooks, handlers, conditions and ARIA', async () => {
   const out = await generate('code');
-  const home = fs.readFileSync(path.join(out, 'src/pages/Home.tsx'), 'utf-8');
+  const home = fs.readFileSync(path.join(out, 'src/neucli/pages/Home.tsx'), 'utf-8');
   const has = (snippet: string) => assert.ok(home.includes(snippet), `missing:\n${snippet}\n\n${home}`);
 
   has(`import { useState } from 'react';`);
@@ -191,7 +191,7 @@ test('interactions fixture: hooks, handlers, conditions and ARIA', async () => {
   // An explicit type on a button wins over the default.
   has('<Frame tag="button" className="flex flex-col" type="submit">');
 
-  const toggle = fs.readFileSync(path.join(out, 'src/components/Toggle.tsx'), 'utf-8');
+  const toggle = fs.readFileSync(path.join(out, 'src/neucli/components/Toggle.tsx'), 'utf-8');
   assert.ok(toggle.includes('const [open, setOpen] = useState(false);'), toggle);
   assert.ok(toggle.includes('className={cx("flex flex-row gap-2", open && "bg-slate-100")}'), toggle);
   assert.ok(toggle.includes('{`Open: ${open}`}'), toggle);
@@ -229,7 +229,7 @@ pages: [{ path: /, name: Home, sections: [{ type: Box }] }]
 `);
   const out = path.join(tmp, 'logic-out');
   await runPipeline(file, out, { quiet: true });
-  const box = fs.readFileSync(path.join(out, 'src/components/Box.tsx'), 'utf-8');
+  const box = fs.readFileSync(path.join(out, 'src/neucli/components/Box.tsx'), 'utf-8');
   assert.equal(box.match(/import \{ useState \}/g)?.length, 1, box);
   assert.ok(box.includes('const [open, setOpen] = useState(false);\n\n  const [other] = useState(1);'), box);
 });

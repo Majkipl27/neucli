@@ -120,6 +120,22 @@ components:
 - Prop types: `text`, `url`, `image`, `number`, `boolean`. `children`, `className`, `overrides`, `id`, `key`, `ref`, `tag`, `style` are reserved.
 - `{prop}` inside a component's strings interpolates (`content`, `src`, `alt`, `href`, `placeholder`, `attrs`, instance props). So does `{name}` for state from an enclosing frame (see Interactions). Anything else in braces is literal text.
 - `logic:` is placed at the top of the component function; `imports:` at the top of the file. Variables `logic` declares can be interpolated too (`content: "{icon}"`), and an attribute whose whole value is `{expr}` is passed as code (`onClick: "{increment}"`). Prefer `state:` / `on:` for state; `logic:` is the escape hatch for what YAML can't say (an icon component, a fetch).
+- **Ids inside a component are per copy.** An `id` (on a node or under `attrs:`) written in a component's tree becomes `` `${uid}-name` `` with `uid` from React's `useId()`, so two copies on a page never share an id. References to those ids inside the same component (`aria-controls`, `aria-labelledby`, `aria-describedby`, `htmlFor`, `list`, `form`...) follow. Ids on pages stay literal, so `/#features` links keep working; to link to a section, give the id to the instance on the page, not to a node inside the component.
+
+### Your own components (`file:`)
+
+```yaml
+components:
+  Pricing:
+    file: ./custom/Pricing.tsx      # relative to the generated project's src/
+    props:
+      plan: text
+      seats: number
+```
+
+A component can point at your own React file instead of a `root` tree. Pages, layouts and other components use it like any component: props are checked against `props:`, instances can have `children`, and instance styles (sizing, `fill`, `color`, `border`) plus `className` arrive as one `className` string. The file needs a default export. It lives in `src/` but outside `src/neucli/`, usually in `src/custom/`. neucli never changes it; if it doesn't exist yet, the first run writes a small starter there for you.
+
+`logic:` and `imports:` don't apply to `file:` components (the code is in the file), and named slots are up to the component (pass them as props). The editor canvas can't run your file; core's `isFileComponent(def)` tells it to show a labelled placeholder instead.
 
 ### Instances
 
@@ -210,16 +226,19 @@ State becomes `useState` at the top of the page or component function that owns 
 Accessibility comes with it:
 
 - **`tag: button` frames.** These get `type="button"` and a plain `onClick`. Use them for clickable things whose content is text.
-- **Other clickable frames and text.** These get `{...onPress(...)}`, a small helper in `src/primitives/press.ts` that adds `role="button"`, `tabIndex`, and Enter/Space handling.
+- **Other clickable frames and text.** These get `{...onPress(...)}`, a small helper in `src/neucli/primitives/press.ts` that adds `role="button"`, `tabIndex`, and Enter/Space handling.
 - **`aria-expanded`.** A `toggle` reports it when something inside the same state frame shows or hides with that state (`visibleWhen`, or a `when` that sets `hidden`). It also reports `aria-controls` when that thing has an `id`.
 - **`tag: dialog` frames.** These need `visibleWhen` on a boolean. They become the `Dialog` primitive, a native `<dialog>` opened with `showModal()`, which gives `aria-modal`, an inert page behind, focus inside, and the `::backdrop` (style it with `className: backdrop:bg-black/50`). Esc and a click on the backdrop set the state back to false, and focus returns to the button that opened it. Add `m-auto` to center it, since Tailwind's reset removes the browser's auto margins.
 
 ## Output
 
-- `src/primitives/` — verbatim copies of `src/core/primitives` (`InternalLink.tsx` becomes a React Router link when there's more than one page).
-- `src/components/` — one file per component that pages or layouts actually use.
-- `src/pages/`, `src/App.tsx`, `src/ScrollToHash.tsx` (routing only: scrolls to `#anchors` and to the top on navigation).
-- `src/index.css` — `@import "tailwindcss"` plus an `@theme` block from `theme`. `body` becomes the default font, `heading` applies to h1-h6.
+Generated code goes under `src/neucli/`, which neucli rewrites on every run. Everything outside it is yours; see [cli.md](cli.md) for who owns what, the manifest, and how hand edits are protected.
+
+- `src/neucli/primitives/` — verbatim copies of `src/core/primitives` (`InternalLink.tsx` becomes a React Router link when there's more than one page).
+- `src/neucli/components/` — one file per component that pages or layouts actually use (`file:` components are imported from where they are instead).
+- `src/neucli/pages/`, `src/neucli/App.tsx`, `src/neucli/ScrollToHash.tsx` (routing only: scrolls to `#anchors` and to the top on navigation).
+- `src/neucli/theme.css` — an `@theme` block from `theme`. `body` becomes the default font, `heading` applies to h1-h6. `src/index.css` (yours) imports Tailwind and this file.
+- `index.html` — title, language, favicon and Google Fonts from `meta` and `theme`.
 
 All output paths live in `src/generator/paths.ts`.
 

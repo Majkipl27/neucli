@@ -90,27 +90,27 @@ for (const config of CONFIGS) {
 
 test('regression: components only reachable through other components get files; unused ones do not', async () => {
   const { out } = await generate('test/fixtures/regression.yaml');
-  const files = fs.readdirSync(path.join(out, 'src', 'components')).sort();
+  const files = fs.readdirSync(path.join(out, 'src', 'neucli', 'components')).sort();
   assert.deepEqual(files, ['Badge.tsx', 'Card.tsx', 'Counter.tsx', 'FeaturedCard.tsx', 'Nav.tsx', 'Shell.tsx']);
 });
 
 test('regression: braces are literal outside components, interpolated inside', async () => {
   const { out } = await generate('test/fixtures/regression.yaml');
-  const home = read(out, 'src/pages/Home.tsx');
+  const home = read(out, 'src/neucli/pages/Home.tsx');
   assert.ok(home.includes('{"Price < 10 {not code} & more > less"}'), home);
   assert.ok(home.includes('{"Open {menu}"}'));
-  const card = read(out, 'src/components/Card.tsx');
+  const card = read(out, 'src/neucli/components/Card.tsx');
   assert.ok(card.includes('<Text tag="h3">{title}</Text>'), card);
   assert.ok(card.includes('src={image} alt={title}'));
   assert.ok(card.includes('{`Seen ${count} times, literal {not code} and \\`ticks\\` \\${\'{\'}x}`}'), card);
-  assert.ok(read(out, 'src/components/Counter.tsx').includes('onClick={increment}'));
-  assert.ok(read(out, 'src/pages/BarePage.tsx').includes('{"  leading spaces stay  "}'));
+  assert.ok(read(out, 'src/neucli/components/Counter.tsx').includes('onClick={increment}'));
+  assert.ok(read(out, 'src/neucli/pages/BarePage.tsx').includes('{"  leading spaces stay  "}'));
   assert.match(home, /useSEO\(\{ title: "Quotes \\" and `backticks` and \$\{injection\}"/);
 });
 
 test('regression: instances get sizing and style overrides from where they are placed', async () => {
   const { out } = await generate('test/fixtures/regression.yaml');
-  const home = read(out, 'src/pages/Home.tsx');
+  const home = read(out, 'src/neucli/pages/Home.tsx');
   assert.ok(home.includes('<Badge label="2026" overrides="bg-brand/10 text-brand max-md:hidden" />'), 'hidden on phone only');
   assert.ok(home.includes('overrides="w-full bg-white border border-slate-200"'), 'width: fill inside a grid');
   assert.ok(home.includes('<Card title="Three" count={1} overrides="w-fit bg-white border border-slate-200" />'), 'instance override wins');
@@ -119,27 +119,27 @@ test('regression: instances get sizing and style overrides from where they are p
     home.includes('<Card title="Four" overrides="w-full bg-slate-900 text-white border border-violet-500" />'),
     'per-copy fill and color win; border keeps its width and only changes color',
   );
-  const card = read(out, 'src/components/Card.tsx');
+  const card = read(out, 'src/neucli/components/Card.tsx');
   assert.ok(card.includes('overrides = "self-stretch bg-white border border-slate-200"'), 'defaults: sizing for a column parent, plus fill and border');
   assert.ok(card.includes('cx("flex flex-col gap-3 p-6 rounded-xl", overrides, className)'), 'overridable styles are not repeated in the root classes');
-  assert.ok(read(out, 'src/components/FeaturedCard.tsx').includes('overrides={overrides ?? "w-80 bg-white border border-slate-200"}'));
+  assert.ok(read(out, 'src/neucli/components/FeaturedCard.tsx').includes('overrides={overrides ?? "w-80 bg-white border border-slate-200"}'));
 });
 
 test('regression: layouts wrap routes, pages can opt out, anchors scroll', async () => {
   const { out } = await generate('test/fixtures/regression.yaml');
-  const app = read(out, 'src/App.tsx');
+  const app = read(out, 'src/neucli/App.tsx');
   assert.match(app, /<Route element=\{<Shell><Outlet \/><\/Shell>\}>\n\s+<Route path="\/" element=\{<Home \/>\} \/>\n\s+<Route path="\/about"/);
   assert.match(app, /<\/Route>\n\s+<Route path="\/bare" element=\{<BarePage \/>\} \/>/);
   assert.match(app, /<ScrollToHash \/>/);
-  assert.ok(fs.existsSync(path.join(out, 'src', 'ScrollToHash.tsx')));
-  assert.match(read(out, 'src/primitives/InternalLink.tsx'), /from 'react-router-dom'/);
-  assert.equal(read(out, 'src/primitives/Frame.tsx'), fs.readFileSync(path.join(root, 'src/core/primitives/Frame.tsx'), 'utf-8'));
+  assert.ok(fs.existsSync(path.join(out, 'src', 'neucli', 'ScrollToHash.tsx')));
+  assert.match(read(out, 'src/neucli/primitives/InternalLink.tsx'), /from 'react-router-dom'/);
+  assert.equal(read(out, 'src/neucli/primitives/Frame.tsx'), fs.readFileSync(path.join(root, 'src/core/primitives/Frame.tsx'), 'utf-8'));
 });
 
 test('theme becomes Tailwind v4 @theme and Google Fonts', async () => {
   const { out } = await generate('test/fixtures/regression.yaml');
-  const css = read(out, 'src/index.css');
-  assert.match(css, /@import "tailwindcss";/);
+  assert.match(read(out, 'src/index.css'), /@import "tailwindcss";\n@import "\.\/neucli\/theme\.css";/);
+  const css = read(out, 'src/neucli/theme.css');
   assert.match(css, /--color-brand: #7c3aed;/);
   assert.match(css, /--font-heading: "Space Grotesk", sans-serif;/);
   assert.match(css, /--default-font-family: var\(--font-body\);/);
@@ -160,9 +160,9 @@ pages:
   const { out } = await generate(file);
   const pkg = JSON.parse(read(out, 'package.json'));
   assert.equal(pkg.dependencies['react-router-dom'], undefined);
-  assert.equal(read(out, 'src/primitives/InternalLink.tsx'), fs.readFileSync(path.join(root, 'src/core/primitives/InternalLink.tsx'), 'utf-8'));
-  assert.ok(!fs.existsSync(path.join(out, 'src', 'ScrollToHash.tsx')));
-  assert.match(read(out, 'src/App.tsx'), /return \(\n\s+<Home \/>\n\s+\);/);
+  assert.equal(read(out, 'src/neucli/primitives/InternalLink.tsx'), fs.readFileSync(path.join(root, 'src/core/primitives/InternalLink.tsx'), 'utf-8'));
+  assert.ok(!fs.existsSync(path.join(out, 'src', 'neucli', 'ScrollToHash.tsx')));
+  assert.match(read(out, 'src/neucli/App.tsx'), /return \(\n\s+<Home \/>\n\s+\);/);
 });
 
 test('switching configs removes stale generated files', async () => {
@@ -191,14 +191,4 @@ test('invalid config is rejected with every error', async () => {
     assert.match(err.message, /path: "\/" is already used/);
     return true;
   });
-});
-
-test('file: components are rejected until Phase 8', async () => {
-  const file = writeConfig('file.yaml', `
-meta: { name: F }
-components:
-  Pricing: { file: ./custom/Pricing.tsx }
-pages: [{ path: /, name: Home, sections: [{ type: Pricing }] }]
-`);
-  await assert.rejects(generate(file), /file components arrive in Phase 8/);
 });

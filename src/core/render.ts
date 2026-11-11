@@ -69,9 +69,18 @@ export function omitOverridable(style: Style): Style {
   return out as Style;
 }
 
+/**
+ * A component backed by your own .tsx (`file:`) instead of a `root` tree. The
+ * CLI imports it; the editor canvas can't render it and should show a labelled
+ * placeholder sized by the instance's own styles.
+ */
+export function isFileComponent(def: ComponentDef | undefined): def is ComponentDef & { file: string } {
+  return !!def && typeof def.file === 'string' && !def.root;
+}
+
 export function rootKind(def: ComponentDef): { kind: StyleKind; container: boolean } {
-  const root = def.root!;
-  if (isInstance(root)) return { kind: 'instance', container: false };
+  const root = def.root;
+  if (!root || isInstance(root)) return { kind: 'instance', container: false };
   if (root.type === 'frame') return { kind: 'frame', container: true };
   if (root.type === 'link') return { kind: 'link', container: isLinkContainer(root) };
   if (root.type === 'text' || root.type === 'image' || root.type === 'input') return { kind: root.type, container: false };
@@ -80,8 +89,8 @@ export function rootKind(def: ComponentDef): { kind: StyleKind; container: boole
 
 /** The root's display, restored when an instance un-hides at a smaller breakpoint. */
 function rootDisplay(def: ComponentDef): string {
-  const root = def.root!;
-  if (isInstance(root)) return 'block';
+  const root = def.root;
+  if (!root || isInstance(root)) return 'block';
   if (root.type === 'frame' || (root.type === 'link' && isLinkContainer(root))) {
     return (root as { layout?: { direction?: string } }).layout?.direction === 'grid' ? 'grid' : 'flex';
   }
@@ -91,18 +100,19 @@ function rootDisplay(def: ComponentDef): string {
 /**
  * Overridable classes (sizing, fill, color, border) for a component root, given
  * where it's placed. The instance's values are merged over the root's, so they win.
+ * A `file:` component has no root: this is just the instance's own classes.
  */
 export function rootOverrides(config: Config, def: ComponentDef, instance: InstanceNode | null, parent: Flows): string {
-  const root = def.root!;
-  if (isInstance(root)) {
+  const root = def.root;
+  if (root && isInstance(root)) {
     // Root is itself an instance: its own overrides are what the inner component receives.
     const inner = config.components?.[root.type];
-    if (!inner?.root) return '';
+    if (!inner) return '';
     return rootOverrides(config, inner, mergeInstance(root, instance), parent);
   }
-  const rootResponsive = (root as { responsive?: StyleSource['responsive'] }).responsive;
+  const rootResponsive = (root as { responsive?: StyleSource['responsive'] } | undefined)?.responsive;
   const perBp = BREAKPOINTS.map(bp => {
-    const fromRoot = pickOverridable(resolveStyle(styleOf(root), rootResponsive, bp));
+    const fromRoot = root ? pickOverridable(resolveStyle(styleOf(root), rootResponsive, bp)) : {};
     const fromInstance = instance ? pickOverridable(resolveStyle(styleOf(instance), instance.responsive as never, bp)) : {};
     return mergeStyle(fromRoot, fromInstance);
   });
@@ -143,8 +153,8 @@ export function nodeClasses(node: Exclude<Node, { type: 'slot' }>, parent: Flows
  * `cx(rest, overrides, className)`.
  */
 export function componentRestClasses(def: ComponentDef): string {
-  const root = def.root!;
-  if (isInstance(root)) return '';
+  const root = def.root;
+  if (!root || isInstance(root)) return '';
   const { kind, container } = rootKind(def);
   const src = sourceOf(root, kind, container);
   const unsized = { ...src, style: omitOverridable(src.style), responsive: src.responsive && {
@@ -214,8 +224,8 @@ export function nodeClassVariants(node: Exclude<Node, { type: 'slot' }>, parent:
 
 /** `componentRestClasses`, per state condition (validation keeps overridable keys out of a root's `when`). */
 export function componentRestVariants(def: ComponentDef): ClassVariants {
-  const root = def.root!;
-  if (isInstance(root)) return { base: '', variants: [] };
+  const root = def.root;
+  if (!root || isInstance(root)) return { base: '', variants: [] };
   const { kind, container } = rootKind(def);
   const src = sourceOf(root, kind, container);
   const unsized: StyleSource = { ...src, style: omitOverridable(src.style), responsive: src.responsive && {
