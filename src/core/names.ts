@@ -11,7 +11,7 @@ export const PRIMITIVE_COMPONENTS: Record<string, string> = {
 
 export const RESERVED_NAMES = new Set([
   ...Object.values(PRIMITIVE_COMPONENTS),
-  'Slot', 'App', 'Router', 'Routes', 'Route', 'Outlet', 'Fragment', 'React', 'ScrollToHash', 'UseSEO',
+  'Slot', 'App', 'Router', 'Routes', 'Route', 'Outlet', 'Fragment', 'React', 'ScrollToHash', 'UseSEO', 'Dialog',
 ]);
 
 /** Props every generated component already has. */
@@ -23,4 +23,15 @@ export function pageComponentName(name: string): string {
   const cleaned = words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('');
   if (!cleaned || /^[0-9]/.test(cleaned)) return 'Page' + cleaned;
   return cleaned;
+}
+
+/** Names a component's `logic` declares (const/let/var/function, including destructuring). */
+export function declaredNames(logic: string | undefined): string[] {
+  if (!logic) return [];
+  const names = new Set<string>();
+  for (const m of logic.matchAll(/\b(?:const|let|var)\s+(\[[^\]]*\]|\{[^}]*\}|[A-Za-z_$][\w$]*)/g)) {
+    for (const id of m[1].matchAll(/[A-Za-z_$][\w$]*/g)) names.add(id[0]);
+  }
+  for (const m of logic.matchAll(/\bfunction\s+([A-Za-z_$][\w$]*)/g)) names.add(m[1]);
+  return [...names];
 }

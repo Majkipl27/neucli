@@ -9,6 +9,7 @@ import { z } from 'zod';
 import type { Config, Node, PropDef } from './types.ts';
 import { PRIMITIVE_TYPES } from './types.ts';
 import { parseColor } from './style/color.ts';
+import { parseAction, parseCondition } from './interactions.ts';
 
 // ---------------------------------------------------------------------------
 // Values
@@ -19,8 +20,6 @@ export const COMPONENT_NAME = /^[A-Z][A-Za-z0-9]*$/;
 /** JSX attribute names: plain identifiers plus aria-label / data-x / xlink:href style. */
 export const ATTR_KEY = /^[A-Za-z_$][\w$]*(?:[-:][\w$]+)*$/;
 const LENGTH_STRING = /^(?:\d+(?:\.\d+)?%|screen|full|\d+(?:\.\d+)?(?:px|rem|em|vh|vw|dvh|svh|lvh|ch)|(?:calc|min|max|clamp)\(.+\))$/;
-const ACTION = /^(?:toggle|set|increment|decrement|next|prev) [A-Za-z_]\w*(?: .+)?$/;
-const CONDITION = /^!?[A-Za-z_][\w.]*(?:\s*(?:==|!=|>=|<=|>|<)\s*.+)?$/;
 
 const Color = z.string().superRefine((value, ctx) => {
   const parsed = parseColor(value, null);
@@ -133,21 +132,42 @@ const Attrs = z.record(z.string().regex(ATTR_KEY, 'not a valid HTML/JSX attribut
 const Tag = z.string().regex(/^[a-z][a-z0-9-]*$/, 'tag must be a lowercase HTML tag name');
 const Content = z.union([z.string(), z.number()]).transform(String);
 
+const CONDITION_HINT = 'expected a condition like "open", "!open" or "tab == 2"';
+const ACTION_HINT = 'expected an action: "toggle open", "set tab 2", "increment count", "decrement count", "next slide of 3" or "prev slide of 3"';
+
+const ConditionString = z.string().refine(s => parseCondition(s) !== null, CONDITION_HINT);
+const ActionString = z.string().refine(s => parseAction(s) !== null, ACTION_HINT);
+
 const base = {
   id: z.string().min(1).optional(),
   name: z.string().optional(),
   className: z.string().optional(),
   attrs: Attrs.optional(),
-  visibleWhen: z.string().regex(CONDITION, 'expected a condition like "open", "!open" or "tab == 2"').optional(),
+  visibleWhen: ConditionString.optional(),
 };
 
 const On = z.strictObject({
-  click: z.string().regex(ACTION, 'expected an action like "toggle open" or "set tab 2"').optional(),
-  submit: z.string().regex(ACTION).optional(),
-  mouseenter: z.string().regex(ACTION).optional(),
-  mouseleave: z.string().regex(ACTION).optional(),
+  click: ActionString.optional(),
+  submit: ActionString.optional(),
+  mouseenter: ActionString.optional(),
+  mouseleave: ActionString.optional(),
 });
-const State = z.record(z.string().regex(IDENTIFIER), z.union([z.string(), z.number(), z.boolean()]));
+const State = z.record(
+  z.string().regex(/^[A-Za-z_]\w*$/, 'state names are identifiers like open or activeTab'),
+  z.union([z.string(), z.number(), z.boolean()]),
+);
+
+/** `when: { <condition>: { ...style overrides, className } }` */
+function when<T extends z.ZodRawShape>(shape: T) {
+  return z
+    .record(z.string(), z.strictObject({ ...shape, className: z.string().optional() }))
+    .superRefine((value, ctx) => {
+      for (const key of Object.keys(value)) {
+        if (!parseCondition(key)) ctx.addIssue({ code: 'custom', path: [key], message: `"${key}": ${CONDITION_HINT}` });
+      }
+    })
+    .optional();
+}
 
 // Recursive references go through z.lazy so the schemas can be declared in any order.
 const Children = z.lazy(() => z.array(NodeSchema));
@@ -162,6 +182,7 @@ const FrameSchema = z.strictObject({
   responsive: responsive(pickStyle(FrameStyle)),
   state: State.optional(),
   on: On.optional(),
+  when: when(pickStyle(FrameStyle)),
 });
 
 const TextSchema = z.strictObject({
@@ -172,6 +193,7 @@ const TextSchema = z.strictObject({
   content: Content,
   responsive: responsive(pickStyle(COMMON_STYLE)),
   on: On.optional(),
+  when: when(pickStyle(COMMON_STYLE)),
 });
 
 const ImageStyle = [...COMMON_STYLE, 'fit'] as const;
@@ -182,6 +204,7 @@ const ImageSchema = z.strictObject({
   src: z.string().min(1),
   alt: z.string().optional(),
   responsive: responsive(pickStyle(ImageStyle)),
+  when: when(pickStyle(ImageStyle)),
 });
 
 const LinkSchema = z.strictObject({
@@ -194,6 +217,7 @@ const LinkSchema = z.strictObject({
   children: Children.optional(),
   responsive: responsive(pickStyle(FrameStyle)),
   on: On.optional(),
+  when: when(pickStyle(FrameStyle)),
 }).refine(n => !(n.content !== undefined && n.children?.length), {
   message: 'a link has either content or children, not both',
 });
@@ -208,6 +232,7 @@ const InputSchema = z.strictObject({
   placeholder: z.string().optional(),
   required: z.boolean().optional(),
   responsive: responsive(pickStyle(COMMON_STYLE)),
+  when: when(pickStyle(COMMON_STYLE)),
 });
 
 const SlotSchema = z.strictObject({

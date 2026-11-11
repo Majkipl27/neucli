@@ -10,11 +10,15 @@ import { parseStructure, formatPath } from './schema.ts';
 import { parseColor } from './style/color.ts';
 import { RESERVED_NAMES, RESERVED_PROPS, pageComponentName } from './names.ts';
 import { COMPONENT_NAME } from './schema.ts';
+import { OVERRIDABLE } from './render.ts';
+import { actionNeeds, attrCondition, INTERACTIVE_TAGS, parseAction, parseCondition, typeOfValue } from './interactions.ts';
+import type { Condition, StateType } from './interactions.ts';
+import { declaredNames } from './names.ts';
 
 export interface ValidationResult {
   config?: Config;
   errors: string[];
-  /** Things that parse fine but don't do anything yet (e.g. Phase 6 interactions). */
+  /** Things that parse fine but don't do anything yet (e.g. `file:` components). */
   warnings: string[];
 }
 
@@ -31,7 +35,6 @@ export function validate(raw: unknown): ValidationResult {
   const components = config.components ?? {};
   const themeColors = new Set(Object.keys(config.theme?.colors ?? {}));
   const themeFonts = new Set(Object.keys(config.theme?.fonts ?? {}));
-  let usesInteractions = false;
 
   // --- component definitions -------------------------------------------------
   for (const [name, def] of Object.entries(components)) {
@@ -54,26 +57,126 @@ export function validate(raw: unknown): ValidationResult {
     for (const dup of slotNames.duplicates) err([...at, 'root'], `slot "${dup || 'default'}" appears more than once`);
   }
 
+  // --- interactions ----------------------------------------------------------------
+  /** State visible at a node: name -> type. Lexical: a page's tree, or one component's tree. */
+  type StateScope = Map<string, StateType>;
+
+  const checkCondition = (c: Condition | null, scope: StateScope, at: Path, what: string) => {
+    if (!c) return;
+    const type = scope.get(c.name);
+    if (!type) {
+      const known = [...scope.keys()];
+      err(at, `${what} reads "${c.name}", which isn't state here${known.length ? ` (state: ${known.join(', ')})` : '; declare it with state: on an enclosing frame'}`);
+      return;
+    }
+    if (!c.op) {
+      if (type !== 'boolean') err(at, `"${c.name}" is a ${type}; compare it instead (e.g. ${c.name} == ${type === 'number' ? 0 : 'value'})`);
+      return;
+    }
+    const valueType = typeOfValue(c.value!);
+    if (['>', '<', '>=', '<='].includes(c.op) && (type !== 'number' || valueType !== 'number')) {
+      err(at, `${c.op} compares numbers; "${c.name}" is a ${type}`);
+    } else if (valueType !== type) {
+      err(at, `"${c.name}" is a ${type}, compared with a ${valueType} (${JSON.stringify(c.value)})`);
+    }
+  };
+
+  const checkInteractions = (node: Node, path: Path, scope: StateScope, ctx: WalkCtx): StateScope => {
+    const n = node as unknown as Record<string, unknown>;
+    if (typeof n.visibleWhen === 'string') {
+      checkCondition(parseCondition(n.visibleWhen), scope, [...path, 'visibleWhen'], 'visibleWhen');
+    }
+    if (isInstance(node)) return scope;
+
+    // State declared here is visible to this node's own on / when / attrs and to its subtree.
+    let own = scope;
+    const state = n.state as Record<string, string | number | boolean> | undefined;
+    if (state) {
+      own = new Map(scope);
+      for (const [name, value] of Object.entries(state)) {
+        if (scope.has(name)) err([...path, 'state', name], `"${name}" is already state on an enclosing frame; pick another name`);
+        else if (ctx.reserved.has(name)) err([...path, 'state', name], `"${name}" is also a prop, slot or logic name of ${ctx.component}`);
+        own.set(name, typeOfValue(value));
+      }
+    }
+
+    const on = n.on as Record<string, string> | undefined;
+    for (const [event, src] of Object.entries(on ?? {})) {
+      const at = [...path, 'on', event];
+      const action = parseAction(src);
+      if (!action) continue; // schema already reported it
+      const type = own.get(action.name);
+      if (!type) {
+        err(at, `"${src}" changes "${action.name}", which isn't state here; declare it with state: on this frame or an enclosing one`);
+      } else if (actionNeeds(action) !== type) {
+        err(at, `"${src}" needs ${actionNeeds(action) === 'boolean' ? 'a boolean' : `a ${actionNeeds(action)}`}, but "${action.name}" is a ${type}`);
+      }
+      if (event === 'submit' && !(node.type === 'frame' && (node as { tag?: string }).tag === 'form')) {
+        err(at, 'submit only fires on a frame with tag: form');
+      }
+      if (event === 'click' && node.type === 'input') err(at, "inputs don't take click actions");
+    }
+
+    const when = n.when as Record<string, Record<string, unknown>> | undefined;
+    for (const [key, style] of Object.entries(when ?? {})) {
+      const at = [...path, 'when', key];
+      checkCondition(parseCondition(key), own, at, 'when');
+      const layout = style.layout as Record<string, unknown> | undefined;
+      if (layout && 'direction' in layout) err([...at, 'layout', 'direction'], "when can't change layout.direction (children's sizing depends on it); use two frames with visibleWhen");
+      if (ctx.isRoot) {
+        const clash = OVERRIDABLE.filter(k => k in style);
+        if (clash.length) err(at, `on a component's root, when can't set ${clash.join(', ')} (instances override those); put the state style on a frame inside`);
+      }
+    }
+
+    for (const [key, value] of Object.entries((n.attrs as Record<string, unknown>) ?? {})) {
+      const c = attrCondition(value, name => own.has(name));
+      if (c) checkCondition(c, own, [...path, 'attrs', key], key);
+    }
+
+    if (node.type === 'frame' && (node as { tag?: string }).tag === 'dialog') {
+      const c = typeof n.visibleWhen === 'string' ? parseCondition(n.visibleWhen) : null;
+      if (!c || c.op || scope.get(c.name) !== 'boolean') {
+        err(path, 'a dialog frame needs visibleWhen on a boolean (e.g. visibleWhen: open), so Esc and the backdrop can close it');
+      }
+    }
+    if (on?.click && node.type === 'frame') {
+      const tag = (node as { tag?: string }).tag;
+      if (tag && !INTERACTIVE_TAGS.has(tag) && ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'table'].includes(tag)) {
+        err([...path, 'on', 'click'], `a clickable ${tag} gets role=button, which hides its meaning from screen readers; use a frame (or tag: button) around it`);
+      }
+    }
+    return own;
+  };
+
+  interface WalkCtx {
+    component: string | null;
+    /** Names a component already uses (props, slots, logic), which state can't reuse. */
+    reserved: Set<string>;
+    isRoot: boolean;
+  }
+
   // --- trees ---------------------------------------------------------------------
-  const walk = (node: Node, path: Path, inComponent: string | null) => {
+  const walk = (node: Node, path: Path, inComponent: string | null, scope: StateScope, ctx: WalkCtx) => {
     if (node.type === 'slot') {
       if (!inComponent) err(path, 'slots only exist inside component definitions');
       return;
     }
 
-    if ('state' in node || 'on' in node || ('visibleWhen' in node && node.visibleWhen !== undefined)) usesInteractions = true;
     checkColors(node, path);
+    const inner = checkInteractions(node, path, scope, ctx);
+    const child: WalkCtx = { ...ctx, isRoot: false };
 
     if (isInstance(node)) {
       checkInstance(node, path);
-      node.children?.forEach((c, i) => walk(c, [...path, 'children', i], inComponent));
+      node.children?.forEach((c, i) => walk(c, [...path, 'children', i], inComponent, inner, child));
       for (const [slot, nodes] of Object.entries(node.slots ?? {})) {
-        nodes.forEach((c, i) => walk(c, [...path, 'slots', slot, i], inComponent));
+        nodes.forEach((c, i) => walk(c, [...path, 'slots', slot, i], inComponent, inner, child));
       }
       return;
     }
     if ('children' in node && node.children) {
-      node.children.forEach((c, i) => walk(c, [...path, 'children', i], inComponent));
+      node.children.forEach((c, i) => walk(c, [...path, 'children', i], inComponent, inner, child));
     }
   };
 
@@ -135,13 +238,20 @@ export function validate(raw: unknown): ValidationResult {
     for (const bp of ['tablet', 'phone']) {
       if (responsive?.[bp]) visitStyle(responsive[bp], [...path, 'responsive', bp]);
     }
+    const when = n.when as Record<string, Record<string, unknown>> | undefined;
+    for (const [key, style] of Object.entries(when ?? {})) visitStyle(style, [...path, 'when', key]);
   };
 
   for (const [name, def] of Object.entries(components)) {
-    if (def.root) walk(def.root, ['components', name, 'root'], name);
+    if (!def.root) continue;
+    const slots = collectSlots(def);
+    const reserved = new Set([...Object.keys(def.props ?? {}), ...slots.named, ...declaredNames(def.logic)]);
+    walk(def.root, ['components', name, 'root'], name, new Map(), { component: name, reserved, isRoot: true });
   }
   config.pages.forEach((page, i) => {
-    page.sections.forEach((node, j) => walk(node, ['pages', i, 'sections', j], null));
+    page.sections.forEach((node, j) =>
+      walk(node, ['pages', i, 'sections', j], null, new Map(), { component: null, reserved: new Set(), isRoot: false }),
+    );
   });
 
   // --- layouts -------------------------------------------------------------------
@@ -164,8 +274,8 @@ export function validate(raw: unknown): ValidationResult {
   if (errors.length === 0) checkCycles(components, errors);
   checkPages(config, errors);
 
-  if (usesInteractions) {
-    warnings.push('state / on / visibleWhen are parsed but not generated yet (Phase 6); they have no effect on the output.');
+  for (const [name, def] of Object.entries(components)) {
+    if (def.file) warnings.push(`components.${name}.file: file components are parsed but not generated yet (Phase 8).`);
   }
 
   return errors.length ? { errors, warnings } : { config, errors, warnings };

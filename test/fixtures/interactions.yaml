@@ -1,0 +1,116 @@
+# Interactions on a page and in components: state, actions, conditions,
+# state styles, a dialog and a form. test/interactions.test.ts reads the output.
+meta:
+  name: Interactions
+
+components:
+  Toggle:
+    props:
+      label: { type: text, default: Details }
+    root:
+      type: frame
+      state: { open: false }
+      layout: { gap: 8 }
+      children:
+        - type: frame
+          on: { click: toggle open }
+          layout: { direction: row, gap: 8 }
+          when: { open: { fill: slate-100 } }
+          children:
+            - { type: text, tag: span, content: '{label}' }
+        - type: text
+          id: toggle-body
+          visibleWhen: open
+          content: 'Open: {open}'
+
+pages:
+  - path: /
+    name: Home
+    sections:
+      - type: frame
+        name: First
+        state: { open: false, count: 0 }
+        children:
+          - type: frame
+            tag: button
+            on: { click: toggle open }
+            children: [{ type: text, tag: span, content: Toggle }]
+          - type: frame
+            id: first-panel
+            visibleWhen: open
+            children: [{ type: text, content: 'Count is {count}' }]
+          - type: text
+            tag: span
+            on: { click: increment count }
+            content: Add
+          - type: text
+            on: { mouseenter: decrement count }
+            content: Hover to subtract
+            when:
+              'count > 3': { color: red-600 }
+              'count == 0': { color: slate-400 }
+      - type: frame
+        name: Second
+        state: { open: true }
+        children:
+          - type: link
+            href: '#'
+            on: { click: toggle open }
+            content: Toggle second
+          - type: text
+            visibleWhen: '!open'
+            content: Closed
+      - type: frame
+        state: { tab: 0, slide: 0, plan: basic }
+        children:
+          - type: frame
+            tag: button
+            on: { click: set tab 1 }
+            attrs: { role: tab, aria-selected: '{tab == 1}' }
+            when: { 'tab == 1': { color: violet-600, border: { color: violet-600, sides: bottom } } }
+            children: [{ type: text, tag: span, content: Tab two }]
+          - type: frame
+            tag: button
+            on: { click: next slide of 3 }
+            children: [{ type: text, tag: span, content: Next }]
+          - type: frame
+            tag: button
+            on: { click: prev slide of 3 }
+            children: [{ type: text, tag: span, content: Prev }]
+          - type: frame
+            tag: button
+            on: { click: set plan pro }
+            children: [{ type: text, tag: span, content: Go pro }]
+          - type: text
+            visibleWhen: plan == pro
+            content: 'Plan: {plan}, slide {slide}'
+      - type: frame
+        state: { dialogOpen: false }
+        children:
+          - type: frame
+            tag: button
+            on: { click: set dialogOpen true }
+            children: [{ type: text, tag: span, content: Open }]
+          - type: frame
+            tag: dialog
+            visibleWhen: dialogOpen
+            className: m-auto
+            layout: { padding: 24 }
+            children:
+              - type: frame
+                tag: button
+                on: { click: set dialogOpen false }
+                children: [{ type: text, tag: span, content: Close }]
+      - type: frame
+        tag: form
+        state: { sent: false }
+        on: { submit: set sent true }
+        children:
+          - { type: input, field: email, inputType: email }
+          - type: frame
+            tag: button
+            attrs: { type: submit }
+            children: [{ type: text, tag: span, content: Send }]
+          - { type: text, visibleWhen: sent, content: Thanks }
+      - type: Toggle
+        props: { label: From the page }

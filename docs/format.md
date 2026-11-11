@@ -118,8 +118,8 @@ components:
 
 - Names are PascalCase and must match exactly. `InnerNote` and `inner-note` can't both exist, so files can't collide on case-insensitive disks. Names that the generated code uses (`Frame`, `Text`, `Image`, `Link`, `Input`, `App`, `Router`...) are rejected.
 - Prop types: `text`, `url`, `image`, `number`, `boolean`. `children`, `className`, `overrides`, `id`, `key`, `ref`, `tag`, `style` are reserved.
-- `{prop}` inside a component's strings interpolates (`content`, `src`, `alt`, `href`, `placeholder`, `attrs`, instance props). Outside components braces are literal text.
-- `logic:` is placed at the top of the component function; `imports:` at the top of the file. Variables `logic` declares can be interpolated too (`content: "{count}"`), and an attribute whose whole value is `{expr}` is passed as code (`onClick: "{increment}"`). Use this for state until interactions land.
+- `{prop}` inside a component's strings interpolates (`content`, `src`, `alt`, `href`, `placeholder`, `attrs`, instance props). So does `{name}` for state from an enclosing frame (see Interactions). Anything else in braces is literal text.
+- `logic:` is placed at the top of the component function; `imports:` at the top of the file. Variables `logic` declares can be interpolated too (`content: "{icon}"`), and an attribute whose whole value is `{expr}` is passed as code (`onClick: "{increment}"`). Prefer `state:` / `on:` for state; `logic:` is the escape hatch for what YAML can't say (an icon component, a fetch).
 
 ### Instances
 
@@ -152,11 +152,67 @@ A layout is a component with a default `slot` where the page goes. With routing,
 
 ### Presets
 
-`neucli/core` ships ready-made components as plain format data (`src/core/presets/`): layouts `Marketing` (navbar, page, footer), `SidebarApp` and `Dashboard`, and blocks `Navbar`, `Hero`, `Section`, `Card`, `Button`, `Stat`, `Footer`. They use Tailwind palette colors only, so they fit any theme. `insertPreset(config, id)` copies a preset's definitions into `components:`; after that they're ordinary components you own. An identical definition already in the config (under any name) is reused, and a name clash gets a free name (`Navbar2`) with references following.
+`neucli/core` ships ready-made components as plain format data (`src/core/presets/`): layouts `Marketing` (navbar, page, footer), `SidebarApp` (with a Menu button on phone) and `Dashboard`, blocks `Navbar`, `Hero`, `Section`, `Card`, `Button`, `Stat`, `Footer`, and interactive blocks `Accordion` (with `AccordionItem`), `Tabs`, `Carousel` and `Modal`. They use Tailwind palette colors only, so they fit any theme. `insertPreset(config, id)` copies a preset's definitions into `components:`; after that they're ordinary components you own. An identical definition already in the config (under any name) is reused, and a name clash gets a free name (`Navbar2`) with references following.
 
-## Interactions (Phase 6, parsed only)
+## Interactions
 
-`state` on frames, `on: { click: "toggle open" }` and `visibleWhen: "open"` are validated now and generate nothing yet; the CLI prints a warning.
+Four keys, small enough to write by hand:
+
+```yaml
+- type: frame
+  state: { open: false }              # declares state for this frame and everything inside it
+  children:
+    - type: frame
+      tag: button
+      on: { click: toggle open }      # an action
+      children:
+        - type: text
+          content: '+'
+          when: { open: { className: rotate-45 } }   # style while a condition holds
+    - type: text
+      visibleWhen: open               # rendered only while the condition holds
+      content: The answer.
+```
+
+### `state`
+
+On a frame: `name: initial value`. The value sets the type (`false` boolean, `0` number, `pricing` string). The frame's own `on`, `when` and `attrs` and everything inside it can read and change it, including instance children and slot content written in the same file. A component's state is per instance, so three `AccordionItem`s open independently. State can't reuse a name an enclosing frame already declared, or a prop, slot or `logic` name of its component. Inside text it interpolates like a prop: `content: "Count: {count}"`.
+
+### `on`
+
+`click`, `submit` (frames with `tag: form`), `mouseenter`, `mouseleave`, each with one action:
+
+| Action | Needs | Does |
+|---|---|---|
+| `toggle open` | boolean | flips it |
+| `set tab 2` / `set open true` / `set plan pro` | same type as the value | sets it |
+| `increment count` / `decrement count` | number | adds / subtracts 1 |
+| `next slide of 3` / `prev slide of 3` | number | steps through 0..2 and wraps |
+
+### Conditions
+
+`visibleWhen`, the keys of `when`, and `{...}` attribute values use the same conditions: `open`, `!open`, `tab == 2`, `tab != 0`, `count >= 3`, `plan == pro`. A bare name must be a boolean (write `count != 0` for a number). One comparison per condition; nest frames or add state for anything more.
+
+`visibleWhen` reads the state of enclosing frames, not the node's own (the node would hide the thing that shows it). An attribute whose whole value is a condition becomes live: `attrs: { aria-selected: "{tab == 0}" }`.
+
+### `when`
+
+`when: { <condition>: <style overrides> }` on frames, text, images, links and inputs. While the condition holds, its styles go on top of the node's style at every breakpoint; `className` inside adds classes. The first condition that holds wins; they don't stack, so put the most specific first.
+
+Why a map of conditions instead of per-state style blocks: it reads like CSS's `:hover` and the rest of this format (`responsive:` is also "override these keys in this situation"), it needs no new concept for multi-value state (`tab == 0`, `tab == 1`), and the generated code is one plain expression: `cx("flex px-3", tab === 0 ? "text-slate-900" : "text-slate-500")`.
+
+Two limits keep the output simple: `when` can't change `layout.direction` (children's sizing depends on it; use two frames with `visibleWhen`), and on a component's root it can't set the keys instances override (`fill`, `color`, `border`, sizing); put state styles on a frame inside.
+
+### Generated code
+
+State becomes `useState` at the top of the page or component function that owns the frame (`const [open, setOpen] = useState(false)`; a name taken twice in one file becomes `open2`). Actions become handlers using React's updater form (`setSlide((slide) => (slide + 1) % 3)`), `visibleWhen` becomes `{open && (...)}`, and `when` becomes a `cx(...)` expression with the shared classes kept static.
+
+Accessibility comes with it:
+
+- **`tag: button` frames.** These get `type="button"` and a plain `onClick`. Use them for clickable things whose content is text.
+- **Other clickable frames and text.** These get `{...onPress(...)}`, a small helper in `src/primitives/press.ts` that adds `role="button"`, `tabIndex`, and Enter/Space handling.
+- **`aria-expanded`.** A `toggle` reports it when something inside the same state frame shows or hides with that state (`visibleWhen`, or a `when` that sets `hidden`). It also reports `aria-controls` when that thing has an `id`.
+- **`tag: dialog` frames.** These need `visibleWhen` on a boolean. They become the `Dialog` primitive, a native `<dialog>` opened with `showModal()`, which gives `aria-modal`, an inert page behind, focus inside, and the `::backdrop` (style it with `className: backdrop:bg-black/50`). Esc and a click on the backdrop set the state back to false, and focus returns to the button that opened it. Add `m-auto` to center it, since Tailwind's reset removes the browser's auto margins.
 
 ## Output
 

@@ -7,22 +7,120 @@
  */
 
 import {
-  COLUMN_FLOWS, childFlows, compileClasses, joinClasses, PRIMITIVE_COMPONENTS, collectSlots, pageComponentName, isInstance,
-  sourceOf, isLinkContainer, slotParentFlows, rootOverrides, componentRestClasses, layoutOf,
+  COLUMN_FLOWS, childFlows, PRIMITIVE_COMPONENTS, collectSlots, pageComponentName, isInstance,
+  sourceOf, isLinkContainer, slotParentFlows, rootOverrides, layoutOf,
+  nodeClassVariants, componentRestVariants, splitVariants, parseAction, parseCondition, conditionJs, negatedConditionJs,
+  actionJs, attrCondition, INTERACTIVE_TAGS, typeOfValue, declaredNames,
 } from '../core/index.ts';
-import type { ComponentDef, Config, Flows, InstanceNode, Node, Page, PropDef } from '../core/index.ts';
-import { attr, declaredNames, element, textChild, valueAttr } from './jsx.ts';
+import type {
+  ClassVariants, ComponentDef, Condition, Config, Flows, InstanceNode, Node, Page, PropDef, StateType,
+} from '../core/index.ts';
+import { attr, element, identityScope, textChild, valueAttr } from './jsx.ts';
 import type { Scope } from './jsx.ts';
+
+/** A state variable in scope: the names generated code uses for it. */
+interface StateRef {
+  js: string;
+  setter: string;
+  type: StateType;
+  /** Some node inside shows/hides with it (so a toggle reports aria-expanded). */
+  controls: boolean;
+  /** The id of the first such node, for aria-controls. */
+  controlsId?: string;
+  /** A dialog opens with it (aria-haspopup on whatever sets it true). */
+  dialog: boolean;
+}
 
 interface Ctx {
   config: Config;
+  /** Props and logic names (components only). */
   scope: Scope;
+  /** State visible here, by its YAML name. */
+  state: ReadonlyMap<string, StateRef>;
+  /** `useState` lines for the file's function, in tree order. Shared by the whole file. */
+  hooks: string[];
+  /** Identifiers the function already uses; state names avoid them. Shared by the whole file. */
+  used: Set<string>;
   /** Primitive component names used by the file. */
   primitives: Set<string>;
   /** Generated components used by the file. */
   components: Set<string>;
   /** Inside a component definition: emit `{children}` / `{name}` for slots. */
   inComponent: boolean;
+}
+
+/** Interpolation scope: props/logic plus state. */
+function scopeOf(ctx: Ctx): Scope {
+  if (ctx.state.size === 0) return ctx.scope;
+  const out = new Map(ctx.scope ?? []);
+  for (const [name, ref] of ctx.state) out.set(name, ref.js);
+  return out;
+}
+
+const refOf = (ctx: Ctx) => (name: string) => ctx.state.get(name)!.js;
+const setterOf = (ctx: Ctx) => (name: string) => ctx.state.get(name)!.setter;
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+
+function freshName(name: string, used: Set<string>): string {
+  let out = name;
+  for (let n = 2; used.has(out); n++) out = `${name}${n}`;
+  used.add(out);
+  return out;
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** Nodes below `node` in the same file (through instance children and slots, not into components). */
+function descendants(node: Node): Node[] {
+  const out: Node[] = [];
+  const visit = (n: Node) => {
+    out.push(n);
+    if (isInstance(n)) {
+      n.children?.forEach(visit);
+      Object.values(n.slots ?? {}).forEach(list => list.forEach(visit));
+    } else if ('children' in n && n.children) n.children.forEach(visit);
+  };
+  if (isInstance(node)) {
+    node.children?.forEach(visit);
+    Object.values(node.slots ?? {}).forEach(list => list.forEach(visit));
+  } else if ('children' in node && node.children) node.children.forEach(visit);
+  return out;
+}
+
+function controlsOf(node: Node, name: string): Pick<StateRef, 'controls' | 'controlsId' | 'dialog'> {
+  let controls = false;
+  let controlsId: string | undefined;
+  let dialog = false;
+  for (const d of descendants(node)) {
+    const n = d as unknown as Record<string, unknown>;
+    const shows = typeof n.visibleWhen === 'string' && parseCondition(n.visibleWhen)?.name === name;
+    const hides = Object.entries((n.when as Record<string, Record<string, unknown>>) ?? {})
+      .some(([k, style]) => parseCondition(k)?.name === name && 'hidden' in style);
+    if (!shows && !hides) continue;
+    controls = true;
+    if (!controlsId && typeof n.id === 'string') controlsId = n.id;
+    if (shows && d.type === 'frame' && (d as { tag?: string }).tag === 'dialog') dialog = true;
+  }
+  return { controls, controlsId, dialog };
+}
+
+/** A frame's `state:` becomes `useState` hooks in the file's function; returns the context its subtree sees. */
+function declareState(node: Node, ctx: Ctx): Ctx {
+  const state = (node as { state?: Record<string, string | number | boolean> }).state;
+  if (!state || Object.keys(state).length === 0) return ctx;
+  const next = new Map(ctx.state);
+  for (const [name, value] of Object.entries(state)) {
+    const js = freshName(name, ctx.used);
+    const setter = freshName(`set${capitalize(js)}`, ctx.used);
+    ctx.hooks.push(`const [${js}, ${setter}] = useState(${JSON.stringify(value)});`);
+    next.set(name, { js, setter, type: typeOfValue(value), ...controlsOf(node, name) });
+  }
+  return { ...ctx, state: next };
 }
 
 // ---------------------------------------------------------------------------
@@ -35,18 +133,97 @@ function commonAttrs(node: Exclude<Node, { type: 'slot' }>, ctx: Ctx): string[] 
   return out;
 }
 
+/** `attrs:`; a whole-value `{condition}` over state becomes a live expression (`aria-selected={tab === 0}`). */
 function extraAttrs(node: Exclude<Node, { type: 'slot' }>, ctx: Ctx): string[] {
-  return Object.entries(node.attrs ?? {}).map(([k, v]) => valueAttr(k === 'class' ? 'className' : k, v, ctx.scope));
+  return Object.entries(node.attrs ?? {}).map(([k, v]) => {
+    const key = k === 'class' ? 'className' : k;
+    const c = attrCondition(v, name => ctx.state.has(name));
+    if (c) return `${key}={${conditionJs(c, refOf(ctx))}}`;
+    return valueAttr(key, v, scopeOf(ctx), ctx.inComponent);
+  });
 }
 
-/** When emitting a component's root: its className merges with the instance's, and rest props land on it. */
+/** When emitting a component's root: its classes merge with the instance's, and rest props land on it. */
 interface RootEmit {
-  classExpr: string;
+  variants: ClassVariants;
 }
 
-function classAttrs(classes: string, root?: RootEmit): string[] {
-  if (root) return [`className={${root.classExpr}}`];
-  return classes ? [`className="${classes}"`] : [];
+/** The part of the className that changes with state: `open ? "a" : "b"`, `tab === 1 ? "a" : undefined`. */
+function variantExpr(v: ClassVariants, ctx: Ctx): string | null {
+  const split = splitVariants(v);
+  const ref = refOf(ctx);
+  const lit = (classes: string) => (classes ? JSON.stringify(classes) : 'undefined');
+  if (split.variants.every(x => !x.classes) && !split.base) return null;
+  if (split.variants.length === 1) {
+    const [only] = split.variants;
+    if (!split.base) return `${conditionJs(only.condition, ref)} && ${lit(only.classes)}`;
+    if (!only.classes) return `${negatedConditionJs(only.condition, ref)} && ${lit(split.base)}`;
+    return `${conditionJs(only.condition, ref)} ? ${lit(only.classes)} : ${lit(split.base)}`;
+  }
+  const chain = split.variants.map(x => `${conditionJs(x.condition, ref)} ? ${lit(x.classes)} : `).join('');
+  return chain + lit(split.base);
+}
+
+function classAttrs(v: ClassVariants, ctx: Ctx, root?: RootEmit): string[] {
+  const live = v.variants.length ? variantExpr(v, ctx) : null;
+  const split = live ? splitVariants(v) : null;
+  const fixed = split ? split.common : v.base;
+  if (root) {
+    const parts = [JSON.stringify(fixed), ...(live ? [live] : []), 'overrides', 'className'];
+    return [`className={cx(${parts.join(', ')})}`];
+  }
+  if (!live) return fixed ? [`className="${fixed}"`] : [];
+  ctx.primitives.add('cx');
+  return [`className={cx(${[...(fixed ? [JSON.stringify(fixed)] : []), live].join(', ')})}`];
+}
+
+/** `on:` as React handlers, plus the ARIA state a reader needs to follow along. */
+function eventAttrs(node: Exclude<Node, { type: 'slot' }>, ctx: Ctx): string[] {
+  const on = (node as { on?: Record<string, string> }).on;
+  if (!on) return [];
+  const out: string[] = [];
+  for (const [event, src] of Object.entries(on)) {
+    const action = parseAction(src);
+    if (!action || !ctx.state.has(action.name)) continue;
+    const stmt = actionJs(action, refOf(ctx), setterOf(ctx));
+    const ref = ctx.state.get(action.name)!;
+
+    if (event === 'click') {
+      if (node.type === 'link') {
+        out.push((node as { href: string }).href.startsWith('#')
+          ? `onClick={(event) => { event.preventDefault(); ${stmt}; }}`
+          : `onClick={() => ${stmt}}`);
+      } else {
+        const tag = (node as { tag?: string }).tag ?? (node.type === 'text' ? 'p' : 'div');
+        if (INTERACTIVE_TAGS.has(tag)) {
+          if (tag === 'button' && !node.attrs?.type) out.push('type="button"');
+          out.push(`onClick={() => ${stmt}}`);
+        } else {
+          ctx.primitives.add('onPress');
+          out.push(`{...onPress(() => ${stmt})}`);
+        }
+      }
+      if (action.kind === 'toggle' && ref.controls) {
+        out.push(`aria-expanded={${ref.js}}`);
+        if (ref.controlsId) out.push(attr('aria-controls', ref.controlsId, null));
+      }
+      if (action.kind === 'set' && action.value === true && ref.dialog) out.push('aria-haspopup="dialog"');
+    } else if (event === 'submit') {
+      out.push(`onSubmit={(event) => { event.preventDefault(); ${stmt}; }}`);
+    } else {
+      out.push(`${event === 'mouseenter' ? 'onMouseEnter' : 'onMouseLeave'}={() => ${stmt}}`);
+    }
+  }
+  return out;
+}
+
+/** `{open && (...)}` around a node with `visibleWhen`. */
+function wrapVisible(node: Node, emitted: string, indent: number, ctx: Ctx): string {
+  const src = (node as { visibleWhen?: string }).visibleWhen;
+  const c = src ? parseCondition(src) : null;
+  if (!c || !ctx.state.has(c.name)) return emitted;
+  const pad = ' '.repeat(indent);
+  return `${pad}{${conditionJs(c, refOf(ctx))} && (\n${emitted}\n${pad})}`;
 }
 
 export function emitNode(node: Node, indent: number, parent: Flows, ctx: Ctx, root?: RootEmit): string {
@@ -57,84 +234,86 @@ export function emitNode(node: Node, indent: number, parent: Flows, ctx: Ctx, ro
     return `${pad}{${name}}`;
   }
 
-  if (isInstance(node)) return emitInstance(node, indent, parent, ctx, null);
+  if (isInstance(node)) {
+    return wrapVisible(node, emitInstance(node, indent + (node.visibleWhen ? 2 : 0), parent, ctx, null), indent, ctx);
+  }
 
+  const visibleWhen = (node as { visibleWhen?: string }).visibleWhen;
+  const dialog = node.type === 'frame' && node.tag === 'dialog' ? parseCondition(visibleWhen ?? '') : null;
+  const visible = !!visibleWhen && !dialog && ctx.state.has(parseCondition(visibleWhen)?.name ?? '');
+  const at = indent + (visible ? 2 : 0);
+  const own = declareState(node, ctx);
+  const scope = scopeOf(own);
   const use = (name: string) => {
     ctx.primitives.add(name);
     return name;
   };
+  const classes = (n: Exclude<Node, { type: 'slot' }>) => classAttrs(root ? root.variants : nodeClassVariants(n, parent), own, root);
+  const tail = (n: Exclude<Node, { type: 'slot' }>) => [
+    ...commonAttrs(n, own),
+    ...classes(n),
+    ...extraAttrs(n, own),
+    ...eventAttrs(n, own),
+    ...(root ? ['{...rest}'] : []),
+  ];
 
+  let out: string;
   switch (node.type) {
     case 'frame': {
-      const cls = joinClasses(compileClasses(sourceOf(node, 'frame', true), parent), node.className);
-      const attrs = [
-        ...(node.tag && node.tag !== 'div' ? [`tag="${node.tag}"`] : []),
-        ...commonAttrs(node, ctx),
-        ...classAttrs(cls, root),
-        ...extraAttrs(node, ctx),
-        ...(root ? ['{...rest}'] : []),
-      ];
       const flows = childFlows(sourceOf(node, 'frame'));
-      const children = (node.children ?? []).map(c => emitNode(c, indent + 2, flows, ctx));
-      return element(use('Frame'), attrs, children, indent);
+      const children = (node.children ?? []).map(c => emitNode(c, at + 2, flows, own));
+      if (dialog && ctx.state.has(dialog.name)) {
+        const ref = ctx.state.get(dialog.name)!;
+        const attrs = [
+          `open={${conditionJs(dialog, refOf(ctx))}}`,
+          `onClose={() => ${ref.setter}(${dialog.negate ? 'true' : 'false'})}`,
+          ...tail(node),
+        ];
+        out = element(use('Dialog'), attrs, children, at);
+        break;
+      }
+      const attrs = [...(node.tag && node.tag !== 'div' ? [`tag="${node.tag}"`] : []), ...tail(node)];
+      out = element(use('Frame'), attrs, children, at);
+      break;
     }
     case 'text': {
-      const cls = joinClasses(compileClasses(sourceOf(node, 'text'), parent), node.className);
-      const attrs = [
-        ...(node.tag && node.tag !== 'p' ? [`tag="${node.tag}"`] : []),
-        ...commonAttrs(node, ctx),
-        ...classAttrs(cls, root),
-        ...extraAttrs(node, ctx),
-        ...(root ? ['{...rest}'] : []),
-      ];
-      return element(use('Text'), attrs, [textChild(node.content, ctx.scope)], indent);
+      const attrs = [...(node.tag && node.tag !== 'p' ? [`tag="${node.tag}"`] : []), ...tail(node)];
+      out = element(use('Text'), attrs, [textChild(node.content, scope)], at);
+      break;
     }
     case 'image': {
-      const cls = joinClasses(compileClasses(sourceOf(node, 'image'), parent), node.className);
       const attrs = [
-        attr('src', node.src, ctx.scope),
-        ...(node.alt !== undefined ? [attr('alt', node.alt, ctx.scope)] : []),
-        ...commonAttrs(node, ctx),
-        ...classAttrs(cls, root),
-        ...extraAttrs(node, ctx),
-        ...(root ? ['{...rest}'] : []),
+        attr('src', node.src, scope),
+        ...(node.alt !== undefined ? [attr('alt', node.alt, scope)] : []),
+        ...tail(node),
       ];
-      return element(use('Image'), attrs, null, indent);
+      out = element(use('Image'), attrs, null, at);
+      break;
     }
     case 'link': {
-      const container = isLinkContainer(node);
-      const cls = joinClasses(compileClasses(sourceOf(node, 'link', container), parent), node.className);
-      const attrs = [
-        attr('href', node.href, ctx.scope),
-        ...(node.newTab ? ['newTab'] : []),
-        ...commonAttrs(node, ctx),
-        ...classAttrs(cls, root),
-        ...extraAttrs(node, ctx),
-        ...(root ? ['{...rest}'] : []),
-      ];
+      const attrs = [attr('href', node.href, scope), ...(node.newTab ? ['newTab'] : []), ...tail(node)];
       let children: string[] = [];
-      if (node.content !== undefined) children = [textChild(node.content, ctx.scope)];
+      if (node.content !== undefined) children = [textChild(node.content, scope)];
       else if (node.children) {
         const flows = childFlows(sourceOf(node, 'link'));
-        children = node.children.map(c => emitNode(c, indent + 2, flows, ctx));
+        children = node.children.map(c => emitNode(c, at + 2, flows, own));
       }
-      return element(use('Link'), attrs, children, indent);
+      out = element(use('Link'), attrs, children, at);
+      break;
     }
     case 'input': {
-      const cls = joinClasses(compileClasses(sourceOf(node, 'input'), parent), node.className);
       const attrs = [
         ...(node.multiline ? ['multiline'] : node.inputType && node.inputType !== 'text' ? [`type="${node.inputType}"`] : []),
         ...(node.field ? [attr('name', node.field, null)] : []),
-        ...(node.placeholder !== undefined ? [attr('placeholder', node.placeholder, ctx.scope)] : []),
+        ...(node.placeholder !== undefined ? [attr('placeholder', node.placeholder, scope)] : []),
         ...(node.required ? ['required'] : []),
-        ...commonAttrs(node, ctx),
-        ...classAttrs(cls, root),
-        ...extraAttrs(node, ctx),
-        ...(root ? ['{...rest}'] : []),
+        ...tail(node),
       ];
-      return element(use('Input'), attrs, null, indent);
+      out = element(use('Input'), attrs, null, at);
+      break;
     }
   }
+  return visible ? wrapVisible(node, out, indent, ctx) : out;
 }
 
 // ---------------------------------------------------------------------------
@@ -149,12 +328,13 @@ function emitInstance(node: InstanceNode, indent: number, parent: Flows, ctx: Ct
   const def = ctx.config.components![node.type];
   ctx.components.add(node.type);
   const declared = (def.props ?? {}) as Record<string, PropDef>;
+  const scope = scopeOf(ctx);
   const attrs: string[] = [];
 
   for (const [prop, value] of Object.entries(node.props ?? {})) {
     const type = declared[prop]?.type;
     const v = typeof value === 'number' && type && type !== 'number' ? String(value) : value;
-    attrs.push(valueAttr(prop, v, ctx.scope));
+    attrs.push(valueAttr(prop, v, scope, ctx.inComponent));
   }
 
   for (const [slot, list] of Object.entries(node.slots ?? {})) {
@@ -185,18 +365,33 @@ function emitInstance(node: InstanceNode, indent: number, parent: Flows, ctx: Ct
 // Files
 // ---------------------------------------------------------------------------
 
-function primitiveImport(ctx: Ctx, from: string, extra: string[] = []): string | null {
-  const order = Object.values(PRIMITIVE_COMPONENTS);
-  const names = [...order.filter(n => ctx.primitives.has(n)), ...extra];
+/** Primitive components first (Frame, Text...), then helpers (Dialog, cx, onPress). */
+const PRIMITIVE_ORDER = [...Object.values(PRIMITIVE_COMPONENTS), 'Dialog', 'cx', 'onPress'];
+
+function primitiveImport(ctx: Ctx, from: string): string | null {
+  const names = PRIMITIVE_ORDER.filter(n => ctx.primitives.has(n));
   return names.length ? `import { ${names.join(', ')} } from '${from}';` : null;
 }
 
+/** Names generated code itself uses in a file, which state variables must not shadow. */
+function baseUsed(config: Config): Set<string> {
+  return new Set([...PRIMITIVE_ORDER, ...Object.keys(config.components ?? {}), 'useState', 'useSEO', 'React']);
+}
+
+function hookLines(ctx: Ctx): string {
+  return ctx.hooks.map(h => `  ${h}\n`).join('');
+}
+
 export function pageSource(config: Config, page: Page, parent: Flows): string {
-  const ctx: Ctx = { config, scope: null, primitives: new Set(), components: new Set(), inComponent: false };
+  const ctx: Ctx = {
+    config, scope: null, state: new Map(), hooks: [], used: baseUsed(config),
+    primitives: new Set(), components: new Set(), inComponent: false,
+  };
   const sections = page.sections.map(s => emitNode(s, 6, parent, ctx));
   const name = pageComponentName(page.name);
 
   const imports = [
+    ...(ctx.hooks.length ? [`import { useState } from 'react';`] : []),
     primitiveImport(ctx, '../primitives'),
     ...[...ctx.components].sort().map(c => `import ${c} from '../components/${c}';`),
     `import useSEO from '../hooks/useSEO';`,
@@ -209,7 +404,7 @@ export function pageSource(config: Config, page: Page, parent: Flows): string {
 
 export default function ${name}() {
   ${seo}
-
+${ctx.hooks.length ? '\n' + hookLines(ctx) : ''}
   return (
 ${body}
   );
@@ -227,7 +422,12 @@ export function componentSource(config: Config, name: string, def: ComponentDef)
   const slots = collectSlots(def);
   slots.named.forEach(s => scopeNames.add(s));
   if (slots.hasDefault) scopeNames.add('children');
-  const ctx: Ctx = { config, scope: scopeNames, primitives: new Set(), components: new Set(), inComponent: true };
+  const used = baseUsed(config);
+  [...scopeNames, 'overrides', 'className', 'rest', 'children'].forEach(n => used.add(n));
+  const ctx: Ctx = {
+    config, scope: identityScope(scopeNames), state: new Map(), hooks: [], used,
+    primitives: new Set(), components: new Set(), inComponent: true,
+  };
   const root = def.root!;
   const overridesDefault = rootOverrides(config, def, null, COLUMN_FLOWS);
 
@@ -236,14 +436,14 @@ export function componentSource(config: Config, name: string, def: ComponentDef)
     body = emitInstance(root, 4, COLUMN_FLOWS, ctx, { overridesDefault });
   } else {
     // Overridable styles (sizing, hidden, fill, color, border) travel per instance through the `overrides` prop.
-    const rest = componentRestClasses(def);
-    body = emitNode(root, 4, COLUMN_FLOWS, ctx, { classExpr: `cx(${JSON.stringify(rest)}, overrides, className)` });
+    ctx.primitives.add('cx');
+    body = emitNode(root, 4, COLUMN_FLOWS, ctx, { variants: componentRestVariants(def) });
   }
 
   const propLines = Object.entries(props).map(([p, d]) => `  ${p}?: ${TS_TYPE[d.type]};`);
   if (slots.hasDefault) propLines.push('  children?: ReactNode;');
   for (const s of slots.named) propLines.push(`  ${s}?: ReactNode;`);
-  propLines.push('  /** Sizing classes from where the instance is placed; replaces the root\'s defaults. */');
+  propLines.push('  /** Size, fill, color and border classes for this copy; they replace the component\'s defaults. */');
   propLines.push('  overrides?: string;');
 
   // Declared props and slots win over same-named HTML attributes (title, color, ...).
@@ -262,16 +462,19 @@ export function componentSource(config: Config, name: string, def: ComponentDef)
   ];
 
   const reactTypes = ['HTMLAttributes', ...(slots.hasDefault || slots.named.size ? ['ReactNode'] : [])];
+  // A component whose `imports:` already bring useState (hand-written logic) doesn't get a second one.
+  const importsUseState = (def.imports ?? []).some(l => /\buseState\b/.test(l) && /from\s+['"]react['"]/.test(l));
   const imports = [
+    ...(ctx.hooks.length && !importsUseState ? [`import { useState } from 'react';`] : []),
     `import type { ${reactTypes.join(', ')} } from 'react';`,
     ...(def.imports ?? []),
-    primitiveImport(ctx, '../primitives', isInstance(root) ? [] : ['cx']),
+    primitiveImport(ctx, '../primitives'),
     ...[...ctx.components].filter(c => c !== name).sort().map(c => `import ${c} from './${c}';`),
   ].filter(Boolean);
 
-  const logic = def.logic
-    ? def.logic.trimEnd().split('\n').map(l => (l ? `  ${l}` : '')).join('\n') + '\n\n'
-    : '';
+  const logic = hookLines(ctx) + (ctx.hooks.length && def.logic ? '\n' : '') + (def.logic
+    ? def.logic.trimEnd().split('\n').map(l => (l ? `  ${l}` : '')).join('\n') + '\n'
+    : '') + (ctx.hooks.length || def.logic ? '\n' : '');
 
   return `${imports.join('\n')}
 

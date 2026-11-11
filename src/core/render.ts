@@ -7,8 +7,10 @@
 
 import { COLUMN_FLOWS, BREAKPOINTS, childFlows, compileClasses, joinClasses, mergeStyle, resolveStyle, styleOf } from './style/compile.ts';
 import type { Flows, StyleKind, StyleSource } from './style/compile.ts';
-import type { ComponentDef, Config, InstanceNode, LinkNode, Node, Page, Style } from './types.ts';
+import type { ComponentDef, Config, InstanceNode, LinkNode, Node, Page, Style, WhenStyle } from './types.ts';
 import { isInstance } from './types.ts';
+import { evalCondition, parseCondition } from './interactions.ts';
+import type { Condition, StateValue } from './interactions.ts';
 
 /** Flow of the element that holds a component's slot (where slot content lands). */
 export function slotParentFlows(config: Config, componentName: string, slot: string | undefined, seen = new Set<string>()): Flows {
@@ -156,4 +158,90 @@ export function componentRestClasses(def: ComponentDef): string {
 export function pageParentFlows(config: Config, page: Page): Flows {
   const layout = layoutOf(config, page);
   return layout ? slotParentFlows(config, layout, undefined) : COLUMN_FLOWS;
+}
+
+// ---------------------------------------------------------------------------
+// State styles (`when:`)
+// ---------------------------------------------------------------------------
+
+export interface ClassVariant {
+  /** The `when` key as written, e.g. "tab == 1". */
+  when: string;
+  condition: Condition;
+  /** The node's full classes while this condition holds. */
+  classes: string;
+}
+
+/**
+ * A node's classes with no condition holding (`base`), and its full classes
+ * under each `when` condition, in order. The first condition that holds wins.
+ */
+export interface ClassVariants {
+  base: string;
+  variants: ClassVariant[];
+}
+
+/** `when` styles go on top of every breakpoint's resolved style. */
+function withWhen(src: StyleSource, extra: Style): StyleSource {
+  const perBp = BREAKPOINTS.map(bp => mergeStyle(resolveStyle(src.style, src.responsive, bp), extra));
+  return { ...src, style: perBp[0], responsive: { tablet: perBp[1], phone: perBp[2] } };
+}
+
+function splitWhen(style: WhenStyle): { style: Style; className?: string } {
+  const { className, ...rest } = style;
+  return { style: rest as Style, className };
+}
+
+function variantsFor(node: Node, compile: (src: StyleSource) => string, src: StyleSource, baseClass: string | undefined): ClassVariants {
+  const base = joinClasses(compile(src), baseClass);
+  const when = (node as { when?: Record<string, WhenStyle> }).when ?? {};
+  const variants: ClassVariant[] = [];
+  for (const [key, override] of Object.entries(when)) {
+    const condition = parseCondition(key);
+    if (!condition) continue;
+    const { style, className } = splitWhen(override);
+    variants.push({ when: key, condition, classes: joinClasses(compile(withWhen(src, style)), baseClass, className) });
+  }
+  return { base, variants };
+}
+
+/** Classes for a primitive node, per state condition. `nodeClasses` is `base`. */
+export function nodeClassVariants(node: Exclude<Node, { type: 'slot' }>, parent: Flows): ClassVariants {
+  if (isInstance(node)) return { base: '', variants: [] };
+  const container = node.type === 'frame' ? true : node.type === 'link' ? isLinkContainer(node) : undefined;
+  return variantsFor(node, src => compileClasses(src, parent), sourceOf(node, node.type, container), node.className);
+}
+
+/** `componentRestClasses`, per state condition (validation keeps overridable keys out of a root's `when`). */
+export function componentRestVariants(def: ComponentDef): ClassVariants {
+  const root = def.root!;
+  if (isInstance(root)) return { base: '', variants: [] };
+  const { kind, container } = rootKind(def);
+  const src = sourceOf(root, kind, container);
+  const unsized: StyleSource = { ...src, style: omitOverridable(src.style), responsive: src.responsive && {
+    tablet: src.responsive.tablet && omitOverridable(src.responsive.tablet),
+    phone: src.responsive.phone && omitOverridable(src.responsive.phone),
+  } };
+  return variantsFor(root, s => compileClasses(s, COLUMN_FLOWS, 'rest'), unsized, (root as { className?: string }).className);
+}
+
+/** The classes for the current state: the first variant whose condition holds, else the base. */
+export function pickVariant(v: ClassVariants, get: (name: string) => StateValue | undefined): string {
+  for (const variant of v.variants) if (evalCondition(variant.condition, get)) return variant.classes;
+  return v.base;
+}
+
+/**
+ * Split variants into classes every state shares (`common`) and what differs,
+ * so generated code reads `cx("flex p-4", open ? "bg-slate-100" : "bg-white")`.
+ */
+export function splitVariants(v: ClassVariants): { common: string; base: string; variants: { when: string; condition: Condition; classes: string }[] } {
+  const lists = [v.base, ...v.variants.map(x => x.classes)].map(c => c.split(/\s+/).filter(Boolean));
+  const shared = lists.reduce((acc, list) => acc.filter(t => list.includes(t)));
+  const rest = (list: string[]) => list.filter(t => !shared.includes(t)).join(' ');
+  return {
+    common: shared.join(' '),
+    base: rest(lists[0]),
+    variants: v.variants.map((x, i) => ({ when: x.when, condition: x.condition, classes: rest(lists[i + 1]) })),
+  };
 }

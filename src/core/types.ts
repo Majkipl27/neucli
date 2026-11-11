@@ -172,16 +172,27 @@ export interface Responsive<S> {
 }
 
 // ---------------------------------------------------------------------------
-// Interactions (Phase 6) — parsed and validated, not generated yet.
+// Interactions. See interactions.ts for the action and condition language.
 // ---------------------------------------------------------------------------
 
+/** Style overrides that apply while a condition holds, plus extra classes. */
+export type WhenStyle = Style & { className?: string };
+
 export interface Interactions {
-  /** Local state on a frame, e.g. { open: false, tab: 1 }. */
+  /**
+   * State on a frame, e.g. { open: false, tab: 1 }. The frame itself and
+   * everything inside it can read and change it; the initial value sets the type.
+   */
   state?: Record<string, string | number | boolean>;
-  /** Event -> action, e.g. { click: "toggle open" }. */
+  /** Event -> action: "toggle open", "set tab 2", "increment count", "next slide of 3". */
   on?: Partial<Record<'click' | 'submit' | 'mouseenter' | 'mouseleave', string>>;
-  /** Show the node only when this is true, e.g. "open", "!open", "tab == 2". */
+  /** Render the node only while this holds: "open", "!open", "tab == 2". Reads its ancestors' state. */
   visibleWhen?: string;
+  /**
+   * Condition -> style overrides, applied on top of every breakpoint while the
+   * condition holds. The first condition that holds wins; they don't stack.
+   */
+  when?: Record<string, WhenStyle>;
 }
 
 // ---------------------------------------------------------------------------
@@ -202,7 +213,7 @@ interface NodeBase {
 
 type StyleKeys = Omit<Style, 'layout' | 'fit'>;
 
-export interface FrameNode extends NodeBase, StyleKeys, Pick<Interactions, 'state' | 'on'> {
+export interface FrameNode extends NodeBase, StyleKeys, Pick<Interactions, 'state' | 'on' | 'when'> {
   type: 'frame';
   /** HTML tag, default `div`. */
   tag?: string;
@@ -211,7 +222,7 @@ export interface FrameNode extends NodeBase, StyleKeys, Pick<Interactions, 'stat
   children?: Node[];
 }
 
-export interface TextNode extends NodeBase, StyleKeys, Pick<Interactions, 'on'> {
+export interface TextNode extends NodeBase, StyleKeys, Pick<Interactions, 'on' | 'when'> {
   type: 'text';
   /** Default `p`. */
   tag?: string;
@@ -219,7 +230,7 @@ export interface TextNode extends NodeBase, StyleKeys, Pick<Interactions, 'on'> 
   responsive?: Responsive<Omit<Style, 'layout' | 'fit'>>;
 }
 
-export interface ImageNode extends NodeBase, StyleKeys {
+export interface ImageNode extends NodeBase, StyleKeys, Pick<Interactions, 'when'> {
   type: 'image';
   src: string;
   alt?: string;
@@ -227,7 +238,7 @@ export interface ImageNode extends NodeBase, StyleKeys {
   responsive?: Responsive<Omit<Style, 'layout'>>;
 }
 
-export interface LinkNode extends NodeBase, StyleKeys, Pick<Interactions, 'on'> {
+export interface LinkNode extends NodeBase, StyleKeys, Pick<Interactions, 'on' | 'when'> {
   type: 'link';
   href: string;
   /** Open in a new tab. */
@@ -239,7 +250,7 @@ export interface LinkNode extends NodeBase, StyleKeys, Pick<Interactions, 'on'> 
   children?: Node[];
 }
 
-export interface InputNode extends NodeBase, StyleKeys {
+export interface InputNode extends NodeBase, StyleKeys, Pick<Interactions, 'when'> {
   type: 'input';
   /** HTML input type, default `text`. */
   inputType?: string;

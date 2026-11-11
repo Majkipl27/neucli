@@ -18,7 +18,16 @@ export { themeCss, googleFontsUrl } from './theme.ts';
 export { PRIMITIVE_COMPONENTS, RESERVED_NAMES, RESERVED_PROPS, pageComponentName } from './names.ts';
 export {
   nodeClasses, componentRestClasses, rootOverrides, slotParentFlows, pageParentFlows, layoutOf,
-  sourceOf, isLinkContainer, rootKind, pickOverridable, omitOverridable,
+  sourceOf, isLinkContainer, rootKind, pickOverridable, omitOverridable, OVERRIDABLE,
+  nodeClassVariants, componentRestVariants, pickVariant, splitVariants,
 } from './render.ts';
+export type { ClassVariant, ClassVariants } from './render.ts';
+export {
+  parseValue, parseCondition, evalCondition, conditionJs, negatedConditionJs, satisfying,
+  parseAction, applyAction, actionJs, actionNeeds, typeOfValue, attrCondition, namesUsed,
+  EVENTS, EVENT_PROP, INTERACTIVE_TAGS,
+} from './interactions.ts';
+export type { StateValue, StateType, Condition, Comparison, Action, EventName } from './interactions.ts';
+export { declaredNames } from './names.ts';
 export { PRESETS, getPreset, insertPreset } from './presets/index.ts';
 export type { Preset, InsertedPreset } from './presets/index.ts';

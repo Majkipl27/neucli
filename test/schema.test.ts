@@ -148,7 +148,7 @@ test('instances can only be hidden per breakpoint', () => {
   assert.deepEqual(validate(config({ components }, [{ type: 'Box', responsive: { phone: { hidden: true } } }])).errors, []);
 });
 
-test('interactions parse, with a warning that they are not generated yet', () => {
+test('interactions validate without warnings now that they generate', () => {
   const result = validate(config({}, [{
     type: 'frame',
     state: { open: false },
@@ -158,8 +158,8 @@ test('interactions parse, with a warning that they are not generated yet', () =>
     ],
   }]));
   assert.deepEqual(result.errors, []);
-  assert.match(result.warnings.join(), /Phase 6/);
-  assertError(config({}, [{ type: 'text', content: 'Q', on: { click: 'explode now please' } }]), /action like "toggle open"/);
+  assert.deepEqual(result.warnings, []);
+  assertError(config({}, [{ type: 'text', content: 'Q', on: { click: 'explode now please' } }]), /expected an action: "toggle open"/);
 });
 
 test('a component needs root or file', () => {
